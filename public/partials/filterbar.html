@@ -1,0 +1,26 @@
+<div class ="filter-bar">
+  <button class="filter-btn active" id="filter-files" onclick="setFilterType('files')">Files</button>
+  <button class="filter-btn" id="filter-folders" onclick="setFilterType('folders')">Folders</button>
+
+  <select id="filter-extension" class="filter-select" onchange="applyFilters()">
+    <option value="">Type</option>
+  </select>
+
+  <select id="filter-people" class="filter-select" onchange="applyFilters()">
+    <option value="">People</option>
+  </select>
+
+  <select id="filter-modified" class="filter-select" onchange="applyFilters()">
+    <option value="">Modified</option>
+    <option value="today">Today</option>
+    <option value="week">This week</option>
+    <option value="month">This month</option>
+  </select>
+
+  <select id="filter-location" class="filter-select" onchange="applyFilters()">
+    <option value="">Location</option>
+    <option value="anywhere">Anywhere in Drive</option>
+    <option value="mydrive">My Drive</option>
+    <option value="shared">Shared with me</option>
+  </select>
+</div>

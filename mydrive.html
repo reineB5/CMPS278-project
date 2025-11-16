@@ -4,6 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link rel="stylesheet" href="main.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+<script src="mydrive.js"></script>
+
 <title>My Drive</title>
 </head>
 <body>
@@ -20,18 +23,176 @@
         <div class="storage">Storage Used:</div>
     </div>
 <div class="main">
-        <div class="topbar">
-            <div class="search-box">
-                <input type="text" placeholder="Search in Drive">
-            </div>
-            <div class="top-buttons">
-                <button class="outline-btn">List</button>
-                <button class="outline-btn">Grid</button>
-                <div class="profile">Hi, User</div>
-            </div>
+    <div class="topbar">
+        <div class="search-box">
+            <input type="text" placeholder="Search in Drive">
         </div>
-        <div class="content"></div>
+        <div class="top-buttons">
+            <button class="outline-btn">List</button>
+            <button class="outline-btn">Grid</button>
+            <div class="profile">Hi, User</div>
+        </div>
     </div>
+
+    <!-- 🔹 Filter bar directly in the HTML -->
+    <div class="filter-bar">
+  <!-- Files / Folders pill -->
+  <div class="ff-toggle">
+    <button class="ff-btn active" id="btn-files">
+      <span class="ff-icon">✓</span>
+      <span>Files</span>
+    </button>
+    <button class="ff-btn" id="btn-folders">
+      <span class="ff-icon">📁</span>
+      <span>Folders</span>
+    </button>
+  </div>
+
+  <!-- Dropdown chips – now using filter-chip class -->
+  <button class="filter-chip">
+    <span>Type</span>
+  </button>
+
+  <button class="filter-chip">
+    <span>People</span>
+  </button>
+
+  <button class="filter-chip">
+    <span>Modified</span>
+  </button>
+
+  <button class="filter-chip">
+    <span>Location</span>
+  </button>
 </div>
+
+
+
+
+    <!-- your files will render here -->
+<div class="content">
+
+  <div class="file-row" data-file-id="1">
+
+    <div class="file-main">
+      <span class="file-name">Slides.pptx</span>
+      <span class="file-meta">Hala • Today • My Drive</span>
+    </div>
+
+    <div class="file-actions-inline">
+      <button class="icon-btn" data-action="share" title="Share">⤴</button>
+      <button class="icon-btn" data-action="download" title="Download">⬇</button>
+      <button class="icon-btn" data-action="rename" title="Rename">✏️</button>
+      <button class="icon-btn" data-action="star" title="Star">☆</button>
+
+      <!-- ⭐ CLEAN KEBAB ⭐ -->
+      <div class="kebab">
+
+        <button class="icon-btn kebab-toggle" title="More">⋮</button>
+
+        <!-- MAIN MENU -->
+        <div class="kebab-menu">
+
+          <!-- Open with submenu -->
+          <div class="menu-item submenu">
+            <span class="material-icons icon">open_with</span>
+            <span>Open with</span>
+            <span class="material-icons arrow">chevron_right</span>
+
+            <div class="submenu-menu">
+              <div class="submenu-item">Google Docs</div>
+              <div class="submenu-item">Google Slides</div>
+              <div class="submenu-item">Google Sheets</div>
+            </div>
+          </div>
+
+          <!-- Download -->
+          <div class="menu-item" data-action="download">
+            <span class="material-icons icon">download</span>
+            <span>Download</span>
+          </div>
+
+          <!-- Rename -->
+          <div class="menu-item" data-action="rename">
+            <span class="material-icons icon">edit</span>
+            <span>Rename</span>
+          </div>
+
+          <!-- Make a copy -->
+          <div class="menu-item">
+            <span class="material-icons icon">content_copy</span>
+            <span>Make a copy</span>
+            <span class="shortcut">Ctrl+C Ctrl+V</span>
+          </div>
+
+          <div class="divider"></div>
+
+          <!-- Share submenu -->
+          <div class="menu-item submenu">
+            <span class="material-icons icon">person_add</span>
+            <span>Share</span>
+            <span class="material-icons arrow">chevron_right</span>
+
+            <div class="submenu-menu">
+              <div class="submenu-item" data-action="share">Share with people</div>
+              <div class="submenu-item">Copy link</div>
+            </div>
+          </div>
+
+          <!-- Organize submenu -->
+          <div class="menu-item submenu">
+            <span class="material-icons icon">drive_file_move</span>
+            <span>Organize</span>
+            <span class="material-icons arrow">chevron_right</span>
+
+            <div class="submenu-menu">
+              <div class="submenu-item">Move to…</div>
+              <div class="submenu-item">Add shortcut to Drive</div>
+            </div>
+          </div>
+
+          <!-- File info submenu -->
+          <div class="menu-item submenu">
+            <span class="material-icons icon">info</span>
+            <span>File information</span>
+            <span class="material-icons arrow">chevron_right</span>
+
+            <div class="submenu-menu">
+              <div class="submenu-item">Details</div>
+              <div class="submenu-item">Activity</div>
+            </div>
+          </div>
+
+          <!-- Available offline -->
+          <div class="menu-item">
+            <span class="material-icons icon">offline_pin</span>
+            <span>Make available offline</span>
+          </div>
+
+          <div class="divider"></div>
+
+          <!-- Trash -->
+          <div class="menu-item" data-action="trash">
+            <span class="material-icons icon">delete</span>
+            <span>Move to trash</span>
+          </div>
+
+          <!-- Not helpful suggestion -->
+          <div class="menu-item">
+            <span class="material-icons icon">chat_bubble</span>
+            <span>Not a helpful suggestion</span>
+          </div>
+
+        </div> <!-- end kebab-menu -->
+
+      </div> <!-- end kebab -->
+
+    </div> <!-- end file-actions-inline -->
+
+  </div> <!-- end file-row -->
+
+</div> <!-- end content -->
+
+
 </body>
 </html>
