@@ -1,37 +1,262 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<link rel="stylesheet" href="main.css">
-<title>Shared</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="main.css">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+  <title>Shared with me</title>
 </head>
-<body>
-<div class="container">
-    <div class="sidebar">
-        <div class="logo">Drive</div>
-        <ul>
-            <li><a href="home.html">Home</a></li>
-            <li><a href="mydrive.html">My Drive</a></li>
-            <li><a href="shared.html" class="active">Shared</a></li>
-            <li><a href="starred.html">Starred</a></li>
-            <li><a href="trash.html">Trash</a></li>
-        </ul>
-        <div class="storage">Storage Used:</div>
-    </div>
-    <div class="main">
-        <div class="topbar">
-            <div class="search-box">
-                <input type="text" placeholder="Search Shared Files">
-            </div>
-            <div class="top-buttons">
-                <button class="outline-btn">List</button>
-                <button class="outline-btn">Grid</button>
-                <div class="profile">Hi, User</div>
-            </div>
+<body data-page="shared">
+  <div class="container">
+    <aside class="sidebar">
+      <div class="logo">Drive</div>
+      <button class="primary-btn" id="new-file-btn">+ New</button>
+      <ul>
+        <li><a href="home.html">Home</a></li>
+        <li><a href="mydrive.html">My Drive</a></li>
+        <li><a href="shared.html" class="active">Shared</a></li>
+        <li><a href="starred.html">Starred</a></li>
+        <li><a href="trash.html">Trash</a></li>
+      </ul>
+      <div class="storage">
+        <p>Total storage</p>
+        <div class="storage-meter">
+          <div class="storage-progress" id="storage-progress"></div>
         </div>
-        <div class="content"></div>
-    </div>
-</div>
+        <small id="storage-copy">0 GB of 15 GB used</small>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div class="search-box">
+          <span class="material-icons">search</span>
+          <input type="text" placeholder="Search shared with me" id="global-search">
+          <button class="advanced-search-btn" id="advanced-search-btn">Advanced</button>
+        </div>
+        <div class="top-buttons">
+          <div class="view-toggle" role="group">
+            <button class="outline-btn" data-view="list" aria-pressed="true">
+              <span class="material-icons">view_list</span>
+            </button>
+            <button class="outline-btn" data-view="grid" aria-pressed="false">
+              <span class="material-icons">grid_view</span>
+            </button>
+          </div>
+          <div class="profile-card">
+            <p class="greeting">Hi, User!</p>
+            <p class="email">user@example.com</p>
+          </div>
+        </div>
+      </header>
+
+      <section class="selection-bar hidden" id="selection-bar">
+        <p><span id="selection-count">0</span> selected</p>
+        <div class="selection-actions">
+          <button data-bulk="share">Share</button>
+          <button data-bulk="download">Download</button>
+          <button data-bulk="move">Move</button>
+          <button data-bulk="delete">Delete</button>
+          <div class="kebab">
+            <button class="icon-btn kebab-toggle" aria-label="More actions">⋮</button>
+            <div class="kebab-menu">
+              <div class="menu-item">Make available offline</div>
+              <div class="menu-item">Add shortcut</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="filter-bar" id="filter-bar">
+        <div class="ff-toggle" role="group">
+          <button class="ff-btn active" data-type="all">All</button>
+          <button class="ff-btn" data-type="files">Files</button>
+          <button class="ff-btn" data-type="folders">Folders</button>
+        </div>
+
+        <div class="filter-chip">
+          <label for="filter-type">Type</label>
+          <select id="filter-type"></select>
+        </div>
+        <div class="filter-chip">
+          <label for="filter-people">People</label>
+          <select id="filter-people"></select>
+        </div>
+        <div class="filter-chip">
+          <label for="filter-location">Location</label>
+          <select id="filter-location"></select>
+        </div>
+        <div class="filter-chip">
+          <label for="filter-modified">Modified</label>
+          <select id="filter-modified">
+            <option value="">Any time</option>
+            <option value="today">Today</option>
+            <option value="week">Last 7 days</option>
+            <option value="month">Last 30 days</option>
+          </select>
+        </div>
+
+        <div class="sort-control">
+          <label for="sort-select">Sort</label>
+          <select id="sort-select">
+            <option value="recent">Last opened</option>
+            <option value="name">Name</option>
+            <option value="size">Size</option>
+            <option value="uploadedAt">Upload date</option>
+          </select>
+        </div>
+      </section>
+
+      <section class="content">
+        <div id="file-list" class="file-list list-view" aria-live="polite"></div>
+      </section>
+    </main>
+  </div>
+
+  <dialog id="advanced-search-dialog">
+    <form method="dialog">
+      <h2>Advanced search</h2>
+      <label>File name
+        <input type="text" id="adv-name">
+      </label>
+      <label>Contains words
+        <input type="text" id="adv-content">
+      </label>
+      <label>Owner
+        <input type="text" id="adv-owner">
+      </label>
+      <label>Shared with
+        <input type="text" id="adv-shared">
+      </label>
+      <div class="dialog-actions">
+        <button value="cancel">Cancel</button>
+        <button id="advanced-search-apply" value="default">Search</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="new-file-dialog">
+    <form id="new-file-form" method="dialog">
+      <h2>Create item</h2>
+      <label>
+        Name
+        <input type="text" name="name" required placeholder="File or folder name">
+      </label>
+      <label>
+        Type
+        <select name="type" required>
+          <option value="document">Document</option>
+          <option value="spreadsheet">Spreadsheet</option>
+          <option value="presentation">Presentation</option>
+          <option value="pdf">PDF</option>
+          <option value="video">Video</option>
+          <option value="archive">Archive</option>
+          <option value="text">Text</option>
+          <option value="folder">Folder</option>
+        </select>
+      </label>
+      <label id="new-file-upload-row">
+        Upload file
+        <input type="file" id="new-file-upload" name="file" accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,.zip,.rar,.mp4,.mov,.mkv,.png,.jpg,.jpeg">
+      </label>
+      <label>
+        Owner
+        <input type="text" name="owner" required placeholder="Owner email or name">
+      </label>
+      <label>
+        Location
+        <select name="location" required>
+          <option value="My Drive">My Drive</option>
+          <option value="Shared with me" selected>Shared with me</option>
+          <option value="Trash">Trash</option>
+        </select>
+      </label>
+      <label>
+        Size (MB)
+        <input type="number" name="sizeMb" min="0" step="1" placeholder="0">
+      </label>
+      <label>
+        Shared with (comma separated emails)
+        <input type="text" name="sharedWith" placeholder="user@example.com, teammate@example.com">
+      </label>
+      <label class="checkbox-field">
+        <input type="checkbox" name="starred">
+        Mark as starred
+      </label>
+      <p class="form-error" id="new-file-error" role="alert"></p>
+      <div class="dialog-actions">
+        <button type="button" id="new-file-cancel">Cancel</button>
+        <button type="submit" id="new-file-submit">Create</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="share-dialog">
+    <form id="share-form" method="dialog">
+      <h2>Share "<span id="share-file-name"></span>"</h2>
+      <div id="share-current-list"></div>
+      <label>
+        Add people
+        <input type="text" id="share-email-input" placeholder="Enter email addresses (comma separated)">
+      </label>
+      <p class="form-error" id="share-error" role="alert"></p>
+      <div class="dialog-actions">
+        <button type="button" id="share-cancel">Cancel</button>
+        <button type="button" id="share-add">Add</button>
+        <button type="button" id="share-save">Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="rename-dialog">
+    <form id="rename-form" method="dialog">
+      <h2>Rename</h2>
+      <label>
+        Name
+        <input type="text" id="rename-input" required placeholder="Enter new name">
+      </label>
+      <p class="form-error" id="rename-error" role="alert"></p>
+      <div class="dialog-actions">
+        <button type="button" id="rename-cancel">Cancel</button>
+        <button type="button" id="rename-save">Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="details-dialog">
+    <form id="details-form" method="dialog">
+      <h2>Details</h2>
+      <div id="details-content"></div>
+      <label>
+        Description
+        <textarea id="details-description" rows="4" placeholder="Add a description"></textarea>
+      </label>
+      <p class="form-error" id="details-error" role="alert"></p>
+      <div class="dialog-actions">
+        <button type="button" id="details-cancel">Close</button>
+        <button type="button" id="details-save">Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="move-dialog">
+    <form id="move-form" method="dialog">
+      <h2>Move "<span id="move-file-name"></span>"</h2>
+      <label>
+        Move to
+        <select id="move-folder-select">
+          <option value="">My Drive (root)</option>
+        </select>
+      </label>
+      <p class="form-error" id="move-error" role="alert"></p>
+      <div class="dialog-actions">
+        <button type="button" id="move-cancel">Cancel</button>
+        <button type="button" id="move-save">Move</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="mydrive.js" defer></script>
 </body>
 </html>
