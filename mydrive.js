@@ -9,13 +9,19 @@ const TYPE_ICONS = {
   text: '📄',
 };
 
+const LOCATION_OPTIONS = [
+  { value: 'anywhere', label: 'Anywhere in Drive', query: '' },
+  { value: 'mydrive', label: 'My Drive', query: 'My Drive' },
+  { value: 'shared', label: 'Shared with me', query: 'Shared with me' },
+];
+
 const state = {
   context: 'home',
   viewMode: 'list',
   primaryFilter: 'all',
   typeFilter: '',
   peopleFilter: '',
-  locationFilter: '',
+  locationFilter: 'anywhere',
   modifiedFilter: '',
   sort: 'recent',
   searchTerm: '',
@@ -25,6 +31,9 @@ const state = {
   filterOptions: { types: [], people: [], locations: [] },
   storage: { usedMb: 0, quotaMb: 15 * 1024 },
   user: null,
+  currentFolderId: null,
+  folderTrail: [],
+  refreshFn: null,
 };
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -32,6 +41,8 @@ document.addEventListener('DOMContentLoaded', () => {
   if (!fileListEl) return;
 
   state.context = document.body.dataset.page || 'home';
+  state.currentFolderId = null;
+  state.folderTrail = [];
 
   const viewButtons = document.querySelectorAll('.view-toggle .outline-btn');
   const primaryFilterButtons = document.querySelectorAll('.ff-btn');
@@ -62,12 +73,22 @@ document.addEventListener('DOMContentLoaded', () => {
   const typeSelectInForm = newFileForm?.querySelector('select[name="type"]');
   const sizeInput = newFileForm?.querySelector('input[name="sizeMb"]');
   const profileElements = getProfileElements();
+  const breadcrumb = document.getElementById('folder-breadcrumb');
+  fillLocationSelect(filterLocation);
+  breadcrumb?.addEventListener('click', (event) => {
+    const button = event.target.closest('.breadcrumb-item');
+    if (!button || button.disabled) return;
+    const index = Number(button.dataset.index);
+    if (Number.isNaN(index)) return;
+    goToBreadcrumb(index);
+  });
 
   const render = () => {
     renderFiles(state.data, fileListEl);
     populateDynamicFilters();
     updateStorage(storageProgress, storageCopy);
     updateSelectionUI(selectionBar, selectionCount);
+    renderBreadcrumb(breadcrumb);
   };
 
   const refresh = async () => {
@@ -83,6 +104,7 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   loadCurrentUser(profileElements);
+  state.refreshFn = refresh;
   refresh();
 
   viewButtons.forEach((btn) =>
@@ -106,7 +128,7 @@ document.addEventListener('DOMContentLoaded', () => {
     select?.addEventListener('change', () => {
       state.typeFilter = filterType?.value || '';
       state.peopleFilter = filterPeople?.value || '';
-      state.locationFilter = filterLocation?.value || '';
+      state.locationFilter = filterLocation?.value || 'anywhere';
       state.modifiedFilter = filterModified?.value || '';
       refresh();
     })
@@ -243,6 +265,7 @@ document.addEventListener('DOMContentLoaded', () => {
       isFolder: type === 'folder',
       uploadedAt: new Date().toISOString(),
       lastOpenedAt: new Date().toISOString(),
+      parentId: getCurrentFolderId(),
     };
 
     if (payload.isFolder) {
@@ -264,6 +287,7 @@ document.addEventListener('DOMContentLoaded', () => {
         uploadData.append('sizeMb', payload.sizeMb);
         uploadData.append('sharedWith', payload.sharedWith.join(','));
         uploadData.append('starred', payload.starred);
+        uploadData.append('parentId', getCurrentFolderId() || '');
         response = await fetch('/api/files/upload', {
           method: 'POST',
           body: uploadData,
@@ -629,8 +653,9 @@ async function loadFiles() {
     search: state.searchTerm,
     type: state.typeFilter,
     people: state.peopleFilter,
-    location: state.locationFilter,
+    location: getLocationQueryValue(),
     modified: state.modifiedFilter,
+    parentId: getParentQueryParam(),
     advName: state.advancedFilters.name || '',
     advOwner: state.advancedFilters.owner || '',
     advShared: state.advancedFilters.shared || '',
@@ -638,7 +663,14 @@ async function loadFiles() {
   });
 
   const response = await fetch(`/api/files?${params.toString()}`);
-  if (!response.ok) throw new Error('Failed to fetch files');
+  if (!response.ok) {
+    if (response.status === 400 && (state.currentFolderId || state.folderTrail.length)) {
+      state.currentFolderId = null;
+      state.folderTrail = [];
+      return loadFiles();
+    }
+    throw new Error('Failed to fetch files');
+  }
   const payload = await response.json();
   state.data = (payload.data || []).map(normalizeFile);
   state.filterOptions = payload.meta?.availableFilters || state.filterOptions;
@@ -673,10 +705,10 @@ function normalizeFile(file) {
 }
 
 function populateDynamicFilters() {
-  const { types, people, locations } = state.filterOptions;
+  const { types, people } = state.filterOptions;
   fillSelect(document.getElementById('filter-type'), types);
   fillSelect(document.getElementById('filter-people'), people);
-  fillSelect(document.getElementById('filter-location'), locations);
+  fillLocationSelect(document.getElementById('filter-location'));
 }
 
 function fillSelect(select, options = []) {
@@ -694,6 +726,25 @@ function fillSelect(select, options = []) {
   }
 }
 
+function fillLocationSelect(select) {
+  if (!select) return;
+  select.innerHTML = '';
+  LOCATION_OPTIONS.forEach((option) => {
+    const opt = document.createElement('option');
+    opt.value = option.value;
+    opt.textContent = option.label;
+    select.appendChild(opt);
+  });
+  const fallback = LOCATION_OPTIONS[0]?.value || 'anywhere';
+  const allowedValues = LOCATION_OPTIONS.map((opt) => opt.value);
+  if (allowedValues.includes(state.locationFilter)) {
+    select.value = state.locationFilter;
+  } else {
+    select.value = fallback;
+    state.locationFilter = fallback;
+  }
+}
+
 function renderFiles(files, container) {
   container.innerHTML = '';
   container.classList.toggle('grid-view', state.viewMode === 'grid');
@@ -704,6 +755,38 @@ function renderFiles(files, container) {
     const element =
       state.viewMode === 'grid' ? createGridCard(file, isSelected) : createListRow(file, isSelected);
     container.appendChild(element);
+  });
+}
+
+function renderBreadcrumb(container) {
+  if (!container) return;
+  const shouldShow = state.context === 'mydrive' || state.folderTrail.length > 0;
+  if (!shouldShow) {
+    container.classList.remove('visible');
+    container.innerHTML = '';
+    return;
+  }
+
+  container.classList.add('visible');
+  container.innerHTML = '';
+  const rootLabel = getBreadcrumbRootLabel();
+  const crumbs = [{ id: null, name: rootLabel }, ...state.folderTrail];
+  crumbs.forEach((crumb, index) => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'breadcrumb-item';
+    button.textContent = crumb.name;
+    button.dataset.index = String(index);
+    if (index === crumbs.length - 1) {
+      button.disabled = true;
+    }
+    container.appendChild(button);
+    if (index < crumbs.length - 1) {
+      const divider = document.createElement('span');
+      divider.className = 'breadcrumb-separator';
+      divider.textContent = '›';
+      container.appendChild(divider);
+    }
   });
 }
 
@@ -886,7 +969,7 @@ function openFile(fileId) {
   const file = state.data.find((item) => item.id === fileId);
   if (!file) return;
   if (file.isFolder) {
-    alert(`Opening folder "${file.name}" (placeholder)`);
+    enterFolder(file);
   } else {
     if (file.storagePath) {
       window.open(`/${file.storagePath}`, '_blank');
@@ -923,6 +1006,63 @@ function formatSize(sizeMb = 0) {
     return `${(sizeMb / 1024).toFixed(1)} GB`;
   }
   return `${sizeMb} MB`;
+}
+
+function getLocationQueryValue() {
+  const option = LOCATION_OPTIONS.find((opt) => opt.value === state.locationFilter);
+  return option?.query || '';
+}
+
+function getParentQueryParam() {
+  const hasTrail = state.folderTrail.length > 0 || Boolean(state.currentFolderId);
+  if (!hasTrail) {
+    return state.context === 'mydrive' ? 'root' : '';
+  }
+  return state.currentFolderId || 'root';
+}
+
+function getCurrentFolderId() {
+  return state.currentFolderId;
+}
+
+function enterFolder(folder) {
+  const existingIndex = state.folderTrail.findIndex((crumb) => crumb.id === folder.id);
+  if (existingIndex >= 0) {
+    state.folderTrail = state.folderTrail.slice(0, existingIndex + 1);
+  } else {
+    state.folderTrail = [...state.folderTrail, { id: folder.id, name: folder.name }];
+  }
+  state.currentFolderId = folder.id;
+  state.selected.clear();
+  state.refreshFn?.();
+}
+
+function goToBreadcrumb(index) {
+  if (index <= 0) {
+    state.folderTrail = [];
+    state.currentFolderId = null;
+  } else {
+    state.folderTrail = state.folderTrail.slice(0, index);
+    state.currentFolderId = state.folderTrail[state.folderTrail.length - 1]?.id || null;
+  }
+  state.selected.clear();
+  state.refreshFn?.();
+}
+
+function getBreadcrumbRootLabel() {
+  switch (state.context) {
+    case 'home':
+      return 'Home';
+    case 'shared':
+      return 'Shared with me';
+    case 'starred':
+      return 'Starred';
+    case 'trash':
+      return 'Trash';
+    case 'mydrive':
+    default:
+      return 'My Drive';
+  }
 }
 
 function getProfileElements() {

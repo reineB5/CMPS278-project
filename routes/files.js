@@ -2,6 +2,7 @@ const express = require('express');
 const multer = require('multer');
 const fs = require('fs');
 const path = require('path');
+const mongoose = require('mongoose');
 const File = require('../models/File');
 
 const router = express.Router();
@@ -43,6 +44,7 @@ router.get('/', async (req, res, next) => {
       sort = 'recent',
       limit = 20,
       skip = 0,
+      parentId,
     } = req.query;
 
     const baseQuery = { trashed: false };
@@ -65,6 +67,14 @@ router.get('/', async (req, res, next) => {
 
     if (type) baseQuery.type = type;
     if (location) baseQuery.location = location;
+
+    if (parentId !== undefined) {
+      const { filter, error } = normalizeParentFilter(parentId);
+      if (error) {
+        return res.status(400).json({ message: error });
+      }
+      baseQuery.parentId = filter;
+    }
 
     if (modified) {
       const daysMap = { today: 1, week: 7, month: 30 };
@@ -177,6 +187,16 @@ router.get('/folders', async (req, res, next) => {
 router.post('/', async (req, res, next) => {
   try {
     const payload = normalizeBody(req.body);
+    const { parent, error } = await resolveParentFolder(payload.parentId);
+    if (error) {
+      return res.status(400).json({ message: error });
+    }
+    if (parent) {
+      payload.parentId = parent._id;
+      payload.location = parent.location;
+    } else {
+      payload.parentId = null;
+    }
     const file = await File.create(payload);
     res.status(201).json(file);
   } catch (error) {
@@ -193,6 +213,16 @@ router.post('/upload', upload.single('file'), async (req, res, next) => {
     const now = new Date();
     const body = normalizeBody(req.body);
     const inferredType = body.type || mapMimeToType(req.file.mimetype);
+    const { parent, error } = await resolveParentFolder(body.parentId);
+    if (error) {
+      return res.status(400).json({ message: error });
+    }
+    if (parent) {
+      body.parentId = parent._id;
+      body.location = parent.location;
+    } else {
+      body.parentId = null;
+    }
 
     const fileDoc = await File.create({
       name: body.name || req.file.originalname,
@@ -209,6 +239,7 @@ router.post('/upload', upload.single('file'), async (req, res, next) => {
       isFolder: false,
       uploadedAt: body.uploadedAt || now,
       lastOpenedAt: body.lastOpenedAt || now,
+      parentId: body.parentId,
     });
 
     res.status(201).json(fileDoc);
@@ -326,17 +357,22 @@ router.post('/:id/move', async (req, res, next) => {
 
     const { parentId, location } = req.body;
     if (parentId !== undefined) {
-      if (parentId === null || parentId === '') {
+      if (!parentId) {
         file.parentId = null;
-      } else {
-        const parent = await File.findById(parentId);
-        if (!parent || !parent.isFolder) {
-          return res.status(400).json({ message: 'Invalid parent folder' });
+        if (location) {
+          file.location = location;
+        } else {
+          file.location = 'My Drive';
         }
-        file.parentId = parentId;
+      } else {
+        const { parent, error } = await resolveParentFolder(parentId);
+        if (error) {
+          return res.status(400).json({ message: error });
+        }
+        file.parentId = parent._id;
+        file.location = parent.location;
       }
-    }
-    if (location) {
+    } else if (location) {
       file.location = location;
     }
     await file.save();
@@ -390,8 +426,39 @@ function normalizeBody(raw = {}) {
   payload.sizeMb = Number(payload.sizeMb) || 0;
   payload.owner = payload.owner || 'Unknown';
   payload.location = payload.location || 'My Drive';
+  if (payload.parentId === '' || payload.parentId === 'root') {
+    payload.parentId = null;
+  }
 
   return payload;
+}
+
+function normalizeParentFilter(parentId) {
+  if (!parentId || parentId === 'root') {
+    return { filter: null };
+  }
+  if (!mongoose.Types.ObjectId.isValid(parentId)) {
+    return { filter: null, error: 'Invalid folder id' };
+  }
+  return { filter: parentId };
+}
+
+async function resolveParentFolder(parentId) {
+  if (parentId === undefined || parentId === null) {
+    return { parent: null };
+  }
+  const normalized = typeof parentId === 'string' ? parentId.trim() : parentId;
+  if (!normalized || normalized === 'root') {
+    return { parent: null };
+  }
+  if (!mongoose.Types.ObjectId.isValid(normalized)) {
+    return { parent: null, error: 'Invalid parent folder' };
+  }
+  const parent = await File.findById(normalized);
+  if (!parent || !parent.isFolder || parent.trashed) {
+    return { parent: null, error: 'Invalid parent folder' };
+  }
+  return { parent };
 }
 
 function mapMimeToType(mime = '') {
@@ -404,4 +471,3 @@ function mapMimeToType(mime = '') {
   if (mime.includes('plain')) return 'text';
   return 'document';
 }
-

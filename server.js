@@ -59,7 +59,9 @@ app.get('/health', (req, res) => res.json({ ok: true }));
 // generic error handler
 app.use((err, _req, res, _next) => {
   console.error(err);
-  res.status(500).json({ message: 'Internal server error' });
+  const status = err.statusCode || err.status || 500;
+  const message = err.message || 'Internal server error';
+  res.status(status).json({ message });
 });
 
 async function start() {

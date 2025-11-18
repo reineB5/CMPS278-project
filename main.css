@@ -258,6 +258,38 @@ body {
   overflow-y: auto;
 }
 
+.folder-breadcrumb {
+  display: none;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: #5f6368;
+  margin: 16px 0 12px;
+}
+
+.folder-breadcrumb.visible {
+  display: flex;
+}
+
+.folder-breadcrumb .breadcrumb-item {
+  border: none;
+  background: transparent;
+  color: #1a73e8;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 0;
+}
+
+.folder-breadcrumb .breadcrumb-item[disabled] {
+  color: #202124;
+  cursor: default;
+}
+
+.folder-breadcrumb .breadcrumb-separator {
+  color: #9aa0a6;
+  font-size: 12px;
+}
+
 /* ================================
    FILE ROW + KEBAB MENU (ONLY)
    ================================ */
