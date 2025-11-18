@@ -320,16 +320,24 @@ body {
 .file-main {
   display: flex;
   flex-direction: column;
+  min-width: 200px;
+  overflow: hidden;
 }
 
 .file-name {
   font-weight: 500;
   color: #202124;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .file-meta {
   font-size: 12px;
   color: #5f6368;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* inline actions (show on hover) */
@@ -524,6 +532,142 @@ body {
   margin-right: 8px;
 }
 
+/* =========================
+   RESPONSIVE ADAPTATIONS
+   ========================= */
+@media (max-width: 1200px) {
+  .container {
+    flex-direction: column;
+    height: auto;
+    overflow: visible;
+  }
+  .sidebar {
+    width: 100%;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+    flex-direction: row;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .sidebar ul {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    padding: 0;
+    margin: 0;
+  }
+  .sidebar ul li {
+    list-style: none;
+  }
+  .main {
+    width: 100%;
+  }
+  .topbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+  .topbar .search-box {
+    margin-right: 0;
+    width: 100%;
+  }
+  .topbar .top-buttons {
+    width: 100%;
+    justify-content: space-between;
+  }
+  .filter-bar {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .sort-control {
+    margin-left: 0;
+  }
+}
+
+@media (max-width: 860px) {
+  .top-buttons {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .top-buttons .view-toggle {
+    width: 100%;
+    justify-content: space-between;
+  }
+  .profile-card {
+    width: 100%;
+    justify-content: space-between;
+  }
+  .selection-bar,
+  .filter-bar {
+    padding: 12px 16px;
+  }
+  .file-row {
+    grid-template-columns: 32px minmax(0, 1fr);
+    grid-template-areas:
+      "checkbox main"
+      "checkbox owner"
+      "checkbox date"
+      "checkbox location"
+      "checkbox actions";
+    row-gap: 6px;
+  }
+  .file-checkbox {
+    grid-area: checkbox;
+    align-self: flex-start;
+  }
+  .file-main {
+    grid-area: main;
+    white-space: normal;
+  }
+  .file-owner {
+    grid-area: owner;
+  }
+  .file-date {
+    grid-area: date;
+  }
+  .file-location {
+    grid-area: location;
+  }
+  .file-actions-inline {
+    grid-area: actions;
+    justify-content: flex-start;
+    opacity: 1;
+    pointer-events: auto;
+  }
+  .file-row > * {
+    width: 100%;
+  }
+}
+
+@media (max-width: 560px) {
+  .sidebar {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .sidebar ul {
+    flex-direction: column;
+    width: 100%;
+  }
+  .filter-bar {
+    gap: 8px;
+  }
+  .filter-chip,
+  .sort-control,
+  .ff-toggle {
+    width: 100%;
+    justify-content: space-between;
+  }
+  .folder-breadcrumb {
+    flex-wrap: wrap;
+  }
+  .selection-bar {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+}
+
 .filter-bar {
   display: flex;
   align-items: center;
@@ -650,12 +794,14 @@ body {
 .file-checkbox {
   display: flex;
   justify-content: center;
+  grid-area: checkbox;
 }
 
 .file-main {
   display: flex;
   align-items: center;
   gap: 10px;
+  grid-area: main;
 }
 
 .file-icon {
@@ -683,6 +829,21 @@ body {
 .file-location {
   font-size: 13px;
   color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.file-owner {
+  grid-area: owner;
+}
+
+.file-date {
+  grid-area: date;
+}
+
+.file-location {
+  grid-area: location;
 }
 
 .file-actions-inline {
@@ -692,6 +853,7 @@ body {
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.15s ease;
+  grid-area: actions;
 }
 
 .file-row:hover .file-actions-inline,
@@ -866,28 +1028,4 @@ dialog input[type="file"] {
   padding: 8px;
   font-size: 14px;
   resize: vertical;
-}
-
-@media (max-width: 960px) {
-  .sidebar {
-    display: none;
-  }
-  .container {
-    flex-direction: column;
-  }
-  .topbar {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-  .file-row {
-    grid-template-columns: 32px minmax(0, 1fr);
-    grid-auto-rows: auto;
-    gap: 8px;
-  }
-  .file-row > *:not(.file-checkbox):not(.file-main) {
-    display: none;
-  }
-  .filter-bar {
-    padding: 16px;
-  }
 }
