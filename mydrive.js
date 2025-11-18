@@ -24,6 +24,7 @@ const state = {
   data: [],
   filterOptions: { types: [], people: [], locations: [] },
   storage: { usedMb: 0, quotaMb: 15 * 1024 },
+  user: null,
 };
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -60,6 +61,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const newFileUploadRow = document.getElementById('new-file-upload-row');
   const typeSelectInForm = newFileForm?.querySelector('select[name="type"]');
   const sizeInput = newFileForm?.querySelector('input[name="sizeMb"]');
+  const profileElements = getProfileElements();
 
   const render = () => {
     renderFiles(state.data, fileListEl);
@@ -80,6 +82,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
+  loadCurrentUser(profileElements);
   refresh();
 
   viewButtons.forEach((btn) =>
@@ -920,6 +923,60 @@ function formatSize(sizeMb = 0) {
     return `${(sizeMb / 1024).toFixed(1)} GB`;
   }
   return `${sizeMb} MB`;
+}
+
+function getProfileElements() {
+  return {
+    greeting: document.getElementById('profile-greeting'),
+    email: document.getElementById('profile-email'),
+    avatarLetter: document.getElementById('profile-avatar-letter'),
+    avatarImage: document.getElementById('profile-avatar-image'),
+  };
+}
+
+async function loadCurrentUser(elements = {}) {
+  try {
+    const response = await fetch('/api/auth/me');
+    if (response.status === 401) {
+      window.location.href = '/login';
+      return;
+    }
+    if (!response.ok) throw new Error('Failed to load user');
+    const payload = await response.json();
+    state.user = payload.user || null;
+    updateProfileCard(elements, state.user);
+  } catch (error) {
+    console.error('Failed to load user profile', error);
+  }
+}
+
+function updateProfileCard(elements = {}, user) {
+  if (!user) return;
+  const trimmedName = (user.name || 'User').trim();
+  const firstName = trimmedName.split(' ')[0] || trimmedName || 'User';
+  if (elements.greeting) {
+    elements.greeting.textContent = `Hi, ${firstName}!`;
+  }
+  if (elements.email) {
+    elements.email.textContent = user.email || '';
+  }
+  const initial = trimmedName.charAt(0).toUpperCase() || 'U';
+  if (user.profileImage && elements.avatarImage) {
+    elements.avatarImage.src = user.profileImage;
+    elements.avatarImage.hidden = false;
+    if (elements.avatarLetter) {
+      elements.avatarLetter.hidden = true;
+    }
+  } else {
+    if (elements.avatarLetter) {
+      elements.avatarLetter.textContent = initial;
+      elements.avatarLetter.hidden = false;
+    }
+    if (elements.avatarImage) {
+      elements.avatarImage.hidden = true;
+      elements.avatarImage.removeAttribute('src');
+    }
+  }
 }
 
 function getViewParam() {

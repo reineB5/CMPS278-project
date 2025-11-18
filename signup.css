@@ -98,3 +98,10 @@ body {
     background-color: #007a80;
     transform: translateY(-1px);
 }
+
+.form-error {
+    font-size: 13px;
+    color: #b00020;
+    min-height: 18px;
+    margin: 6px 0 0;
+}

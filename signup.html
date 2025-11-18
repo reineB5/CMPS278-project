@@ -6,22 +6,24 @@
 <link rel="stylesheet" href="signup.css">
 <title>Sign Up</title>
 </head>
-<body>
+<body data-page="signup">
 <div class="signup-container">
     <div class="signup-box">
         <h1>Create Account</h1>
-        <form>
-            <input type="text" placeholder="Username" required>
-            <input type="email" placeholder="Email" required>
-            <input type="password" placeholder="Password" required>
-            <input type="password" placeholder="Confirm Password" required>
+        <form id="signup-form">
+            <input type="text" name="name" placeholder="Full name" required>
+            <input type="email" name="email" placeholder="Email" required>
+            <input type="password" name="password" placeholder="Password" required minlength="8">
+            <input type="password" name="confirm" placeholder="Confirm Password" required minlength="8">
             <div class="options">
-                <label><input type="checkbox"> Remember me</label>
+                <label><input type="checkbox" name="remember" id="signup-remember"> Remember me</label>
                 <a href="login.html">Already have an account?</a>
             </div>
-            <button type="submit">Sign Up</button>
+            <p class="form-error" id="signup-error" role="alert"></p>
+            <button type="submit" id="signup-submit">Sign Up</button>
         </form>
     </div>
 </div>
+<script src="auth.js" defer></script>
 </body>
 </html>

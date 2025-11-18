@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="profile.css">
+  <title>Profile</title>
+</head>
+<body data-page="profile">
+  <main class="profile-layout">
+    <header class="profile-header">
+      <a href="home.html" class="back-link">← Back to Drive</a>
+      <button type="button" class="logout-btn" id="logout-btn">Log out</button>
+    </header>
+
+    <section class="profile-card-large">
+      <div class="profile-avatar" id="profile-page-avatar">
+        <img id="profile-page-avatar-image" alt="Profile picture" hidden>
+        <span id="profile-page-avatar-letter">U</span>
+      </div>
+      <div class="profile-details">
+        <p class="profile-greeting" id="profile-page-greeting">Hi, User!</p>
+        <p class="profile-email" id="profile-page-email">user@example.com</p>
+        <dl class="profile-meta">
+          <div>
+            <dt>Full name</dt>
+            <dd id="profile-page-name">User Name</dd>
+          </div>
+          <div>
+            <dt>Email</dt>
+            <dd id="profile-page-email-detail">user@example.com</dd>
+          </div>
+          <div>
+            <dt>Member since</dt>
+            <dd id="profile-page-joined">—</dd>
+          </div>
+        </dl>
+      </div>
+    </section>
+  </main>
+  <script src="profile.js" defer></script>
+</body>
+</html>
