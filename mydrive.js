@@ -29,7 +29,12 @@ const state = {
   selected: new Set(),
   data: [],
   filterOptions: { types: [], people: [], locations: [] },
-  storage: { usedMb: 0, quotaMb: 15 * 1024 },
+  storage: {
+    usedMb: 0,
+    quotaMb: 15 * 1024,
+    usedBytes: 0,
+    quotaBytes: 15 * 1024 * 1024 * 1024,
+  },
   user: null,
   currentFolderId: null,
   folderTrail: [],
@@ -981,11 +986,23 @@ function openFile(fileId) {
 
 function updateStorage(progressEl, copyEl) {
   if (!progressEl || !copyEl) return;
-  const usedGb = state.storage.usedMb / 1024;
-  const quotaGb = state.storage.quotaMb / 1024;
-  const percentage = Math.min((usedGb / quotaGb) * 100, 100);
-  progressEl.style.width = `${percentage}%`;
-  copyEl.textContent = `${usedGb.toFixed(1)} GB of ${quotaGb} GB used`;
+  const usedBytes =
+    typeof state.storage.usedBytes === 'number'
+      ? state.storage.usedBytes
+      : Math.round((state.storage.usedMb || 0) * 1024 * 1024);
+  const quotaBytes =
+    typeof state.storage.quotaBytes === 'number'
+      ? state.storage.quotaBytes
+      : Math.round((state.storage.quotaMb || 0) * 1024 * 1024);
+  const percentUsed = quotaBytes ? Math.min((usedBytes / quotaBytes) * 100, 100) : 0;
+  progressEl.classList.remove('warning', 'danger');
+  if (percentUsed >= 90) {
+    progressEl.classList.add('danger');
+  } else if (percentUsed >= 70) {
+    progressEl.classList.add('warning');
+  }
+  progressEl.style.width = `${percentUsed}%`;
+  copyEl.textContent = `${formatBytesCompact(usedBytes)} of ${formatBytesCompact(quotaBytes)} used`;
 }
 
 function getIcon(file) {
@@ -1063,6 +1080,23 @@ function getBreadcrumbRootLabel() {
     default:
       return 'My Drive';
   }
+}
+
+function formatBytesCompact(bytes = 0) {
+  if (!bytes) return '0 MB';
+  const gb = bytes / (1024 * 1024 * 1024);
+  if (gb >= 1) {
+    return `${gb.toFixed(gb >= 10 ? 0 : 1)} GB`;
+  }
+  const mb = bytes / (1024 * 1024);
+  if (mb >= 1) {
+    return `${mb.toFixed(mb >= 10 ? 0 : 1)} MB`;
+  }
+  const kb = bytes / 1024;
+  if (kb >= 1) {
+    return `${kb.toFixed(kb >= 10 ? 0 : 1)} KB`;
+  }
+  return `${bytes} B`;
 }
 
 function getProfileElements() {

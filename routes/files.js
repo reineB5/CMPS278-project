@@ -131,13 +131,24 @@ router.get('/', async (req, res, next) => {
           $group: {
             _id: null,
             totalSize: { $sum: '$sizeMb' },
+            totalBytes: {
+              $sum: {
+                $cond: [
+                  { $gt: ['$sizeBytes', 0] },
+                  '$sizeBytes',
+                  { $multiply: ['$sizeMb', 1024 * 1024] },
+                ],
+              },
+            },
           },
         },
       ]),
     ]);
 
     const storageUsedMb = storageStats[0]?.totalSize || 0;
+    const storageUsedBytes = storageStats[0]?.totalBytes || Math.round(storageUsedMb * 1024 * 1024);
     const quotaMb = 15 * 1024;
+    const quotaBytes = quotaMb * 1024 * 1024;
 
     const availableFilters = {
       types: [...new Set(files.map((file) => file.type))],
@@ -162,6 +173,8 @@ router.get('/', async (req, res, next) => {
         storage: {
           usedMb: storageUsedMb,
           quotaMb,
+          usedBytes: storageUsedBytes,
+          quotaBytes,
         },
       },
     });
@@ -213,6 +226,8 @@ router.post('/upload', upload.single('file'), async (req, res, next) => {
     const now = new Date();
     const body = normalizeBody(req.body);
     const inferredType = body.type || mapMimeToType(req.file.mimetype);
+    const fileSizeBytes = req.file.size;
+    const fileSizeMb = Number((fileSizeBytes / (1024 * 1024)).toFixed(2));
     const { parent, error } = await resolveParentFolder(body.parentId);
     if (error) {
       return res.status(400).json({ message: error });
@@ -231,7 +246,8 @@ router.post('/upload', upload.single('file'), async (req, res, next) => {
       location: body.location || 'My Drive',
       sharedWith: body.sharedWith || [],
       starred: body.starred || false,
-      sizeMb: body.sizeMb || Number((req.file.size / (1024 * 1024)).toFixed(2)),
+      sizeMb: fileSizeMb,
+      sizeBytes: fileSizeBytes,
       originalName: req.file.originalname,
       mimeType: req.file.mimetype,
       storagePath: path.posix.join('uploads', req.file.filename),
@@ -424,6 +440,12 @@ function normalizeBody(raw = {}) {
   payload.starred = payload.starred === true || payload.starred === 'true';
   payload.isFolder = payload.type === 'folder' || payload.isFolder === true || payload.isFolder === 'true';
   payload.sizeMb = Number(payload.sizeMb) || 0;
+  const parsedBytes = Number(payload.sizeBytes);
+  if (Number.isFinite(parsedBytes) && parsedBytes > 0) {
+    payload.sizeBytes = parsedBytes;
+  } else {
+    payload.sizeBytes = Math.round(payload.sizeMb * 1024 * 1024);
+  }
   payload.owner = payload.owner || 'Unknown';
   payload.location = payload.location || 'My Drive';
   if (payload.parentId === '' || payload.parentId === 'root') {

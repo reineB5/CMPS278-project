@@ -19,6 +19,7 @@ const fileSchema = new mongoose.Schema(
     uploadedAt: { type: Date, default: Date.now },
     lastOpenedAt: { type: Date, default: Date.now },
     sizeMb: { type: Number, default: 0 },
+    sizeBytes: { type: Number, default: 0 },
     isFolder: { type: Boolean, default: false },
     parentId: { type: mongoose.Schema.Types.ObjectId, ref: 'File', default: null },
     starred: { type: Boolean, default: false },
@@ -35,4 +36,3 @@ const fileSchema = new mongoose.Schema(
 fileSchema.index({ name: 'text', owner: 'text', description: 'text' });
 
 module.exports = mongoose.model('File', fileSchema);
-

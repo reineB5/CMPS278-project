@@ -112,8 +112,17 @@ body {
 
 .storage-progress {
   height: 100%;
-  width: 52%;
+  width: 0%;
   background: var(--primary);
+  transition: width 0.3s ease;
+}
+
+.storage-progress.warning {
+  background: #fbbc04;
+}
+
+.storage-progress.danger {
+  background: #ea4335;
 }
 
 /* === MAIN SECTION === */

@@ -230,7 +230,11 @@ async function seed() {
 
     await mongoose.connect(process.env.MONGODB_URI);
     await File.deleteMany({});
-    await File.insertMany(sampleFiles);
+    const docs = sampleFiles.map((file) => ({
+      ...file,
+      sizeBytes: Math.round((file.sizeMb || 0) * 1024 * 1024),
+    }));
+    await File.insertMany(docs);
     console.log(`Inserted ${sampleFiles.length} files`);
     await mongoose.disconnect();
     process.exit(0);
@@ -241,4 +245,3 @@ async function seed() {
 }
 
 seed();
-
