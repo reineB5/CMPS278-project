@@ -1,8 +1,8 @@
 @import url('https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;600&display=swap');
 
 :root {
-  --primary: #00adb5;
-  --primary-dark: #007a80;
+  --primary: #00bcd4;
+  --primary-dark: #00838f;
   --text: #202124;
   --muted: #5f6368;
   --border: #e0e0e0;
@@ -85,12 +85,12 @@ body {
 
 .sidebar a:hover {
     background-color: #e0f7fa;
-    color: #007a80;
+    color: var(--primary-dark);
 }
 
 .sidebar a.active {
     background-color: #c2f0f3;
-    color: #007a80;
+    color: var(--primary-dark);
     font-weight: 500;
 }
 
@@ -103,11 +103,12 @@ body {
 
 .storage-meter {
   width: 100%;
-  height: 6px;
+  height: 8px;
   border-radius: 999px;
   background: #e8eaed;
   margin: 8px 0;
   overflow: hidden;
+  position: relative;
 }
 
 .storage-progress {
@@ -115,6 +116,9 @@ body {
   width: 0%;
   background: var(--primary);
   transition: width 0.3s ease;
+  border-radius: 999px;
+  min-width: 0;
+  display: block;
 }
 
 .storage-progress.warning {
@@ -218,21 +222,21 @@ body {
 }
 
 .profile-card:hover {
-  background: rgba(66, 133, 244, 0.08);
+  background: rgba(0, 188, 212, 0.08);
 }
 
 .profile-avatar {
   width: 42px;
   height: 42px;
   border-radius: 50%;
-  background: #d7ecff;
+  background: #b2ebf2;
   display: flex;
   align-items: center;
   justify-content: center;
   overflow: hidden;
   font-weight: 600;
-  color: #1a73e8;
-  border: 1px solid rgba(66, 133, 244, 0.25);
+  color: var(--primary);
+  border: 1px solid rgba(0, 188, 212, 0.25);
 }
 
 .profile-avatar img {
@@ -250,13 +254,16 @@ body {
 
 .greeting {
   margin: 0;
-  font-weight: 600;
+  font-weight: 500;
+  font-size: 14px;
+  color: var(--text);
 }
 
 .email {
   margin: 0;
   font-size: 12px;
   color: var(--muted);
+  display: none;
 }
 
 /* === CONTENT === */
@@ -283,7 +290,7 @@ body {
 .folder-breadcrumb .breadcrumb-item {
   border: none;
   background: transparent;
-  color: #1a73e8;
+  color: var(--primary);
   font-weight: 500;
   cursor: pointer;
   padding: 0;
@@ -314,14 +321,22 @@ body {
 }
 
 .file-row:hover {
-  background: #e8f0fe;
+  background: #e0f7fa;
 }
 
+/* This is for a different context - keeping for compatibility */
 .file-main {
   display: flex;
   flex-direction: column;
   min-width: 200px;
   overflow: hidden;
+}
+
+/* Override for list rows */
+.file-row .file-main {
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
 }
 
 .file-name {
@@ -498,8 +513,8 @@ body {
   width: 100% !important;
   padding: 10px 14px !important;
   border-radius: 20px !important;
-  border: 1px solid #d0d0d0 !important;
-  background: #f1f3f4 !important;
+  border: none !important;
+  background: transparent !important;
 }
 
 .topbar .top-buttons {
@@ -514,10 +529,11 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 24px;
-  background: #e8f0fe;
+  padding: 4px 24px;
+  background: #e0f7fa;
   border-bottom: 1px solid var(--border);
   gap: 16px;
+  min-height: 32px;
 }
 
 .selection-bar.hidden {
@@ -600,7 +616,7 @@ body {
   }
   .selection-bar,
   .filter-bar {
-    padding: 12px 16px;
+    padding: 4px 16px;
   }
   .file-row {
     grid-template-columns: 32px minmax(0, 1fr);
@@ -715,8 +731,8 @@ body {
 }
 
 .ff-btn.active {
-  background: #e8f0fe;
-  color: #174ea6;
+  background: #e0f7fa;
+  color: var(--primary-dark);
 }
 
 .ff-icon {
@@ -766,29 +782,39 @@ body {
 
 .file-list.grid-view {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 12px;
+  padding: 8px 0;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.file-list.grid-view .grid-card {
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .file-row {
   display: grid;
   grid-template-columns: 32px minmax(0, 1fr) 180px 160px 140px min-content;
+  grid-template-areas: "checkbox main owner date location actions";
   align-items: center;
   padding: 10px 16px;
   border-radius: 12px;
   font-size: 14px;
   border: 1px solid transparent;
   transition: background 0.2s ease, border-color 0.2s ease;
+  position: relative;
 }
 
 .file-row:hover {
-  background: #f5f8ff;
-  border-color: #d2e3fc;
+  background: #f0fdfe;
+  border-color: #b2dfdb;
 }
 
 .file-row.selected {
-  background: #e8f0fe;
-  border-color: #1a73e8;
+  background: #e0f7fa;
+  border-color: var(--primary);
 }
 
 .file-checkbox {
@@ -797,10 +823,19 @@ body {
   grid-area: checkbox;
 }
 
+/* Only apply grid-area to list rows, not grid cards */
+.file-row .file-checkbox {
+  grid-area: checkbox;
+}
+
 .file-main {
   display: flex;
   align-items: center;
   gap: 10px;
+}
+
+/* Only apply grid-area to list rows, not grid cards */
+.file-row .file-main {
   grid-area: main;
 }
 
@@ -846,6 +881,11 @@ body {
   grid-area: location;
 }
 
+/* Only apply grid-area to list rows, not grid cards */
+.file-row .file-location {
+  grid-area: location;
+}
+
 .file-actions-inline {
   display: inline-flex;
   align-items: center;
@@ -853,6 +893,10 @@ body {
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.15s ease;
+}
+
+/* Only apply grid-area to list rows, not grid cards */
+.file-row .file-actions-inline {
   grid-area: actions;
 }
 
@@ -876,17 +920,131 @@ body {
 
 .grid-card {
   border: 1px solid var(--border);
-  border-radius: 16px;
-  padding: 16px;
+  border-radius: 12px;
+  padding: 12px;
   display: flex;
   flex-direction: column;
   gap: 8px;
+  background: #fff;
+  position: relative;
+  transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+  overflow: hidden;
+  min-width: 0;
+  isolation: isolate;
+}
+
+.grid-card:hover {
+  background: #f0fdfe;
+  border-color: #b2dfdb;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.grid-card.selected {
+  background: #e0f7fa;
+  border-color: var(--primary);
+}
+
+.grid-card-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  position: relative;
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.grid-card .file-checkbox {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  z-index: 10;
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 4px;
+  padding: 2px;
+  grid-area: unset !important;
+  grid-column: unset !important;
+  grid-row: unset !important;
+}
+
+.grid-card:hover .file-checkbox,
+.grid-card.selected .file-checkbox {
+  opacity: 1;
 }
 
 .grid-card .file-main {
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 10px;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: flex-start !important;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
+  position: relative;
+  grid-area: unset !important;
+  grid-column: unset !important;
+  grid-row: unset !important;
+}
+
+.grid-card .file-main > div {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.grid-card .file-icon {
+  width: 48px;
+  height: 48px;
+  font-size: 24px;
+  flex-shrink: 0;
+}
+
+.grid-card .file-name {
+  font-weight: 500;
+  font-size: 14px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 100%;
+  max-width: 100%;
+  display: block;
+}
+
+.grid-card .file-meta {
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 100%;
+  max-width: 100%;
+  display: block;
+}
+
+.grid-card .file-actions-inline {
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  justify-content: center;
+  margin-top: auto;
+  grid-area: unset !important;
+  grid-column: unset !important;
+  grid-row: unset !important;
+  width: 100%;
+  padding-top: 8px;
+  flex-shrink: 0;
+  min-height: 32px;
+  position: relative;
+}
+
+.grid-card:hover .file-actions-inline,
+.grid-card.selected .file-actions-inline {
+  opacity: 1;
 }
 
 .grid-meta {
@@ -961,6 +1119,35 @@ dialog input[type="file"] {
   border-radius: 8px;
   padding: 8px 16px;
   cursor: pointer;
+}
+
+.dialog-actions button[type="button"]:hover {
+  background: #f1f3f4;
+}
+
+.delete-button {
+  background: #d93025 !important;
+  color: #fff !important;
+  border: none !important;
+  font-weight: 500;
+}
+
+.delete-button:hover {
+  background: #c5221f !important;
+}
+
+#delete-dialog h2 {
+  margin: 0 0 16px 0;
+  font-size: 20px;
+  font-weight: 500;
+  color: #202124;
+}
+
+#delete-message {
+  margin: 0 0 24px 0;
+  color: #5f6368;
+  font-size: 14px;
+  line-height: 1.5;
 }
 
 .form-error {

@@ -253,13 +253,24 @@
       <label>
         Move to
         <select id="move-folder-select">
-          <option value="">My Drive (root)</option>
+          <option value="">My Drive</option>
         </select>
       </label>
       <p class="form-error" id="move-error" role="alert"></p>
       <div class="dialog-actions">
         <button type="button" id="move-cancel">Cancel</button>
         <button type="button" id="move-save">Move</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="delete-dialog">
+    <form id="delete-form" method="dialog">
+      <h2>Delete forever?</h2>
+      <p id="delete-message">This action cannot be undone. This will permanently delete the item and remove it from all folders.</p>
+      <div class="dialog-actions">
+        <button type="button" id="delete-cancel">Cancel</button>
+        <button type="button" id="delete-confirm" class="delete-button">Delete forever</button>
       </div>
     </form>
   </dialog>

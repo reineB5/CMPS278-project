@@ -632,7 +632,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Load folders and populate select
     const folders = await loadFolders();
     if (moveFolderSelect) {
-      moveFolderSelect.innerHTML = '<option value="">My Drive (root)</option>';
+      moveFolderSelect.innerHTML = '<option value="">My Drive</option>';
       folders.forEach((folder) => {
         if (folder._id !== fileId) {
           const option = document.createElement('option');
@@ -647,6 +647,44 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     moveDialog.showModal();
+  };
+
+  // Delete dialog setup
+  const deleteDialog = document.getElementById('delete-dialog');
+  const deleteMessage = document.getElementById('delete-message');
+  const deleteCancel = document.getElementById('delete-cancel');
+  const deleteConfirm = document.getElementById('delete-confirm');
+  let pendingDeleteIds = [];
+
+  deleteCancel?.addEventListener('click', () => {
+    deleteDialog?.close();
+    pendingDeleteIds = [];
+  });
+
+  deleteConfirm?.addEventListener('click', async () => {
+    if (pendingDeleteIds.length > 0) {
+      await deleteForever(pendingDeleteIds);
+      deleteDialog?.close();
+      pendingDeleteIds = [];
+    }
+  });
+
+  window.openDeleteDialog = (ids, fileNames = []) => {
+    if (!deleteDialog) return;
+    pendingDeleteIds = Array.isArray(ids) ? ids : [ids];
+    
+    if (pendingDeleteIds.length === 1) {
+      const fileName = fileNames[0] || state.data.find(f => f.id === pendingDeleteIds[0])?.name || 'item';
+      if (deleteMessage) {
+        deleteMessage.textContent = `Permanently delete "${fileName}"? This action cannot be undone. This will permanently delete the item and remove it from all folders.`;
+      }
+    } else {
+      if (deleteMessage) {
+        deleteMessage.textContent = `Permanently delete ${pendingDeleteIds.length} items? This action cannot be undone. This will permanently delete the items and remove them from all folders.`;
+      }
+    }
+    
+    deleteDialog.showModal();
   };
 });
 
@@ -828,17 +866,17 @@ function createGridCard(file, selected) {
   card.dataset.fileId = file.id;
 
   card.innerHTML = `
-    <div class="file-main">
-      <span class="file-icon">${getIcon(file)}</span>
-      <div>
-        <div class="file-name">${file.name}</div>
-        <div class="file-meta">${file.owner} • ${formatDate(file.uploadedAt)}</div>
+    <div class="grid-card-header">
+      <div class="file-checkbox">
+        <input type="checkbox" class="file-select" ${selected ? 'checked' : ''} aria-label="Select ${file.name}">
       </div>
-    </div>
-    <div class="grid-meta">
-      <span>Location: ${file.location}</span>
-      <span>Size: ${formatSize(file.sizeMb)}</span>
-      <span>Shared: ${file.sharedWith.length || 'Private'}</span>
+      <div class="file-main">
+        <span class="file-icon">${getIcon(file)}</span>
+        <div>
+          <div class="file-name">${file.name}</div>
+          <div class="file-meta">${file.location}</div>
+        </div>
+      </div>
     </div>
     <div class="file-actions-inline">
       ${renderInlineActions(file)}
@@ -931,9 +969,7 @@ function handleFileAction(action, fileId) {
 
   if (action === 'delete') {
     if (state.context === 'trash') {
-      if (confirm(`Permanently delete "${file.name}"? This cannot be undone.`)) {
-        deleteForever([fileId]);
-      }
+      window.openDeleteDialog([fileId], [file.name]);
     } else {
       deleteForever([fileId]);
     }
@@ -995,13 +1031,20 @@ function updateStorage(progressEl, copyEl) {
       ? state.storage.quotaBytes
       : Math.round((state.storage.quotaMb || 0) * 1024 * 1024);
   const percentUsed = quotaBytes ? Math.min((usedBytes / quotaBytes) * 100, 100) : 0;
+  
+  // Update progress bar visual fill
   progressEl.classList.remove('warning', 'danger');
   if (percentUsed >= 90) {
     progressEl.classList.add('danger');
   } else if (percentUsed >= 70) {
     progressEl.classList.add('warning');
   }
-  progressEl.style.width = `${percentUsed}%`;
+  
+  // Ensure the width is set and visible
+  progressEl.style.width = `${Math.max(percentUsed, 0)}%`;
+  progressEl.style.display = 'block';
+  progressEl.style.minWidth = percentUsed > 0 ? '2px' : '0';
+  
   copyEl.textContent = `${formatBytesCompact(usedBytes)} of ${formatBytesCompact(quotaBytes)} used`;
 }
 
@@ -1128,12 +1171,17 @@ function updateProfileCard(elements = {}, user) {
   if (!user) return;
   const trimmedName = (user.name || 'User').trim();
   const firstName = trimmedName.split(' ')[0] || trimmedName || 'User';
+  
+  // Google Drive style: Show name instead of email
   if (elements.greeting) {
-    elements.greeting.textContent = `Hi, ${firstName}!`;
+    elements.greeting.textContent = trimmedName || 'User';
   }
+  // Hide email element (Google Drive doesn't show email in the profile card)
   if (elements.email) {
-    elements.email.textContent = user.email || '';
+    elements.email.textContent = '';
+    elements.email.style.display = 'none';
   }
+  
   const initial = trimmedName.charAt(0).toUpperCase() || 'U';
   if (user.profileImage && elements.avatarImage) {
     elements.avatarImage.src = user.profileImage;
@@ -1177,9 +1225,11 @@ function handleBulkAction(action) {
   switch (action) {
     case 'delete':
       if (isTrashPage) {
-        if (confirm(`Permanently delete ${ids.length} item(s)? This cannot be undone.`)) {
-          deleteForever(ids);
-        }
+        const fileNames = ids.map(id => {
+          const file = state.data.find(f => f.id === id);
+          return file?.name || '';
+        });
+        window.openDeleteDialog(ids, fileNames);
       } else {
         moveToTrash(ids);
       }

@@ -5,7 +5,7 @@
   font-family: "Google Sans", "Segoe UI", Arial, sans-serif;
   --text: #202124;
   --muted: #5f6368;
-  --primary: #1a73e8;
+  --primary: #00bcd4;
   --bg: #f8f9fa;
   --card-bg: #ffffff;
   --border: #e0e0e0;
@@ -75,8 +75,8 @@ body {
   width: 120px;
   height: 120px;
   border-radius: 50%;
-  background: #d7ecff;
-  border: 2px solid rgba(26, 115, 232, 0.35);
+  background: #b2ebf2;
+  border: 2px solid rgba(0, 188, 212, 0.35);
   display: flex;
   align-items: center;
   justify-content: center;
