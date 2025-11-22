@@ -27,7 +27,7 @@ const sortMap = {
   uploadedAt: { uploadedAt: -1 },
 };
 
-router.get('/', async (req, res, next) => {
+/*router.get('/', async (req, res, next) => {
   try {
     const {
       view = 'mydrive',
@@ -48,7 +48,54 @@ router.get('/', async (req, res, next) => {
     } = req.query;
 
     const baseQuery = { trashed: false };
+    const andFilters = [];*/
+
+    router.get('/', async (req, res, next) => {
+  try {
+    const {
+      view = 'mydrive',
+      primary = 'all',
+      type,
+      people,
+      location,
+      modified,
+      search = '',
+      advName = '',
+      advOwner = '',
+      advShared = '',
+      advContent = '',
+      sort = 'recent',
+      limit = 20,
+      skip = 0,
+      parentId,
+    } = req.query;
+
+    const currentUserEmail = req.user?.email;
+    const baseQuery = { trashed: false };
     const andFilters = [];
+
+    // By default, limit to files owned by the logged-in user
+    if (currentUserEmail) {
+      baseQuery.owner = currentUserEmail;
+    }
+
+    if (view === 'trash') {
+      baseQuery.trashed = true;
+    }
+
+    if (view === 'shared') {
+      // For "Shared with me", show files shared *with* this user
+      delete baseQuery.owner; // not owner-based here
+      if (currentUserEmail) {
+        andFilters.push({ sharedWith: currentUserEmail });
+      }
+      baseQuery.location = 'Shared with me';
+    }
+
+    if (view === 'starred') {
+      baseQuery.starred = true;
+    }
+
 
     if (view === 'trash') {
       baseQuery.trashed = true;
@@ -122,28 +169,35 @@ router.get('/', async (req, res, next) => {
       sortOption.lastOpenedAt = -1;
     }
 
-    const [files, total, storageStats] = await Promise.all([
-      File.find(query).sort(sortOption).skip(numericSkip).limit(numericLimit).lean(),
-      File.countDocuments(query),
-      File.aggregate([
-        { $match: { trashed: false } },
-        {
-          $group: {
-            _id: null,
-            totalSize: { $sum: '$sizeMb' },
-            totalBytes: {
-              $sum: {
-                $cond: [
-                  { $gt: ['$sizeBytes', 0] },
-                  '$sizeBytes',
-                  { $multiply: ['$sizeMb', 1024 * 1024] },
-                ],
-              },
-            },
+    const storageMatch = { trashed: false };
+
+// limit storage stats to current user’s files
+if (currentUserEmail) {
+  storageMatch.owner = currentUserEmail;
+}
+
+const [files, total, storageStats] = await Promise.all([
+  File.find(query).sort(sortOption).skip(numericSkip).limit(numericLimit).lean(),
+  File.countDocuments(query),
+  File.aggregate([
+    { $match: storageMatch },
+    {
+      $group: {
+        _id: null,
+        totalSize: { $sum: '$sizeMb' },
+        totalBytes: {
+          $sum: {
+            $cond: [
+              { $gt: ['$sizeBytes', 0] },
+              '$sizeBytes',
+              { $multiply: ['$sizeMb', 1024 * 1024] },
+            ],
           },
         },
-      ]),
-    ]);
+      },
+    },
+  ]),
+]);
 
     const storageUsedMb = storageStats[0]?.totalSize || 0;
     const storageUsedBytes = storageStats[0]?.totalBytes || Math.round(storageUsedMb * 1024 * 1024);
@@ -209,7 +263,12 @@ router.post('/', async (req, res, next) => {
       payload.location = parent.location;
     } else {
       payload.parentId = null;
+      payload.location = payload.location || 'My Drive';
     }
+    // Force owner to be the logged-in user
+    payload.owner = req.user?.email || req.user?.username || 'Unknown';
+
+
     const file = await File.create(payload);
     res.status(201).json(file);
   } catch (error) {
@@ -229,27 +288,32 @@ router.post('/upload', upload.single('file'), async (req, res, next) => {
     const fileSizeBytes = req.file.size;
     const fileSizeMb = Number((fileSizeBytes / (1024 * 1024)).toFixed(2));
     const { parent, error } = await resolveParentFolder(body.parentId);
+
     if (error) {
       return res.status(400).json({ message: error });
     }
+
     if (parent) {
       body.parentId = parent._id;
       body.location = parent.location;
     } else {
       body.parentId = null;
+      body.location = body.location || 'My Drive';
     }
 
     const fileDoc = await File.create({
       name: body.name || req.file.originalname,
-      owner: body.owner || 'Unknown',
+      // 🔹 OWNER = currently logged-in user (email or username)
+      owner: req.user?.email || req.user?.username || 'Unknown',
       type: inferredType,
-      location: body.location || 'My Drive',
+      location: body.location,
       sharedWith: body.sharedWith || [],
       starred: body.starred || false,
       sizeMb: fileSizeMb,
       sizeBytes: fileSizeBytes,
       originalName: req.file.originalname,
       mimeType: req.file.mimetype,
+      // 🔹 THIS IS WHAT MAKES IT *NOT* A PLACEHOLDER:
       storagePath: path.posix.join('uploads', req.file.filename),
       isUploaded: true,
       isFolder: false,
@@ -264,13 +328,167 @@ router.post('/upload', upload.single('file'), async (req, res, next) => {
   }
 });
 
-router.get('/:id', async (req, res, next) => {
+
+
+
+/*router.get('/:id', async (req, res, next) => {
   try {
     const file = await File.findById(req.params.id);
     if (!file) {
       return res.status(404).json({ message: 'File not found' });
     }
     res.json(file);
+  } catch (error) {
+    next(error);
+  }
+});*/
+router.get('/', async (req, res, next) => {
+  try {
+    const {
+      view = 'mydrive',
+      primary = 'all',
+      type,
+      people,
+      location,
+      modified,
+      search = '',
+      advName = '',
+      advOwner = '',
+      advShared = '',
+      advContent = '',
+      sort = 'recent',
+      limit = 20,
+      skip = 0,
+      parentId,
+    } = req.query;
+
+    const currentUserEmail = req.user?.email || req.user?.username || null;
+
+    const baseQuery = { trashed: false };
+    const andFilters = [];
+
+    // 🔹 Only my files for My Drive / default view
+    if (currentUserEmail && view !== 'shared' && view !== 'trash') {
+      baseQuery.owner = currentUserEmail;
+    }
+
+    if (view === 'trash') {
+      baseQuery.trashed = true;
+    }
+
+    if (view === 'shared') {
+      // Files shared *with* me
+      delete baseQuery.owner;
+      if (currentUserEmail) {
+        andFilters.push({ sharedWith: currentUserEmail });
+      }
+      baseQuery.location = 'Shared with me';
+    }
+
+    if (view === 'starred') {
+      baseQuery.starred = true;
+    }
+
+    if (primary === 'files') baseQuery.isFolder = false;
+    if (primary === 'folders') baseQuery.isFolder = true;
+    if (type) baseQuery.type = type;
+    if (location) baseQuery.location = location;
+
+    if (parentId !== undefined) {
+      const { filter, error } = normalizeParentFilter(parentId);
+      if (error) {
+        return res.status(400).json({ message: error });
+      }
+      baseQuery.parentId = filter;
+    }
+
+    if (modified) {
+      const daysMap = { today: 1, week: 7, month: 30 };
+      const days = daysMap[modified];
+      if (days) {
+        const threshold = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+        baseQuery.uploadedAt = { $gte: threshold };
+      }
+    }
+
+    if (search) {
+      andFilters.push({ name: { $regex: search, $options: 'i' } });
+    }
+    if (advName) {
+      andFilters.push({ name: { $regex: advName, $options: 'i' } });
+    }
+    if (advOwner) {
+      andFilters.push({ owner: { $regex: advOwner, $options: 'i' } });
+    }
+    if (advShared) {
+      andFilters.push({ sharedWith: { $regex: advShared, $options: 'i' } });
+    }
+    if (advContent) {
+      andFilters.push({ description: { $regex: advContent, $options: 'i' } });
+    }
+
+    const query = { ...baseQuery };
+    if (andFilters.length) {
+      query.$and = andFilters;
+    }
+
+    const sortOption = sortMap[sort] || sortMap.recent;
+    const numericLimit = Math.min(parseInt(limit, 10) || 20, 100);
+    const numericSkip = parseInt(skip, 10) || 0;
+
+    if (view === 'home') {
+      sortOption.lastOpenedAt = -1;
+    }
+
+    // 🔹 Use the same query for files & storage (but always ignore trashed in storage)
+    const storageMatch = { ...query, trashed: false };
+
+    const [files, total, storageStats] = await Promise.all([
+      File.find(query).sort(sortOption).skip(numericSkip).limit(numericLimit).lean(),
+      File.countDocuments(query),
+      File.aggregate([
+        { $match: storageMatch },
+        {
+          $group: {
+            _id: null,
+            totalSize: { $sum: '$sizeMb' },
+            totalBytes: {
+              $sum: {
+                $cond: [
+                  { $gt: ['$sizeBytes', 0] },
+                  '$sizeBytes',
+                  { $multiply: ['$sizeMb', 1024 * 1024] },
+                ],
+              },
+            },
+          },
+        },
+      ]),
+    ]);
+
+    const storageUsedMb = storageStats[0]?.totalSize || 0;
+    const storageUsedBytes =
+      storageStats[0]?.totalBytes || Math.round(storageUsedMb * 1024 * 1024);
+    const quotaMb = 15 * 1024;
+    const quotaBytes = quotaMb * 1024 * 1024;
+
+    res.json({
+      data: files,   // 🔹 includes storagePath, mimeType, isUploaded, etc.
+      meta: {
+        total,
+        limit: numericLimit,
+        skip: numericSkip,
+        storage: {
+          usedMb: storageUsedMb,
+          usedBytes: storageUsedBytes,
+          quotaMb,
+          quotaBytes,
+        },
+        availableFilters: {
+          // ...
+        },
+      },
+    });
   } catch (error) {
     next(error);
   }
