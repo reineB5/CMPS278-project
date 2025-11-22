@@ -351,6 +351,94 @@ router.post('/:id/rename', async (req, res, next) => {
   }
 });
 
+router.get('/:id/download', async (req, res, next) => {
+  try {
+    const file = await File.findById(req.params.id);
+    if (!file) {
+      return res.status(404).json({ message: 'File not found' });
+    }
+    if (!file.storagePath) {
+      return res.status(400).json({ message: 'File has no stored content' });
+    }
+
+    const absolutePath = path.join(__dirname, '..', file.storagePath);
+
+    if (!fs.existsSync(absolutePath)) {
+      return res.status(404).json({ message: 'File content not found on disk' });
+    }
+
+    const downloadName = file.originalName || file.name;
+
+    // This sets Content-Disposition: attachment; filename="..."
+    res.download(absolutePath, downloadName, (err) => {
+      if (err) {
+        next(err);
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+
+router.post('/:id/copy', async (req, res, next) => {
+  try {
+    const original = await File.findById(req.params.id);
+    if (!original) {
+      return res.status(404).json({ message: 'File not found' });
+    }
+
+    if (original.trashed) {
+      return res.status(400).json({ message: 'Cannot copy a trashed item' });
+    }
+
+    // Base name: "Copy of <name>"
+    const baseName = `Copy of ${original.name}`;
+    let newName = baseName;
+    let counter = 1;
+
+    // Make sure the name is unique in the same folder for the same owner
+    while (
+      await File.exists({
+        owner: original.owner,
+        parentId: original.parentId,
+        name: newName,
+      })
+    ) {
+      newName = `${baseName} (${counter++})`;
+    }
+
+    const now = new Date();
+
+    const copy = await File.create({
+      name: newName,
+      owner: original.owner,
+      type: original.type,
+      location: original.location,
+      sharedWith: original.sharedWith,
+      description: original.description,
+      uploadedAt: original.uploadedAt,
+      lastOpenedAt: now,
+      sizeMb: original.sizeMb,
+      sizeBytes: original.sizeBytes,
+      isFolder: original.isFolder,
+      parentId: original.parentId,
+      starred: false,
+      trashed: false,
+      originalName: original.originalName,
+      mimeType: original.mimeType,
+      storagePath: original.storagePath,  // reuse same uploaded file
+      isUploaded: original.isUploaded,
+      availableOffline: false,
+    });
+
+    res.status(201).json(copy);
+  } catch (error) {
+    next(error);
+  }
+});
+
+
 router.post('/:id/details', async (req, res, next) => {
   try {
     const file = await File.findById(req.params.id);

@@ -1,4 +1,4 @@
-const TYPE_ICONS = {
+/*const TYPE_ICONS = {
   folder: '📁',
   document: '📝',
   spreadsheet: '📊',
@@ -7,7 +7,45 @@ const TYPE_ICONS = {
   video: '🎬',
   archive: '🗜️',
   text: '📄',
+};*/
+const TYPE_ICONS = {
+  folder:
+    '<span class="material-icons file-icon-symbol">folder</span>',
+
+  // Office documents (Word-like)
+  document:
+    '<span class="material-icons file-icon-symbol">description</span>',
+
+  // Excel-style
+  spreadsheet:
+    '<span class="material-icons file-icon-symbol">grid_on</span>',
+
+  // PowerPoint-style
+  presentation:
+    '<span class="material-icons file-icon-symbol">slideshow</span>',
+
+  // PDF
+  pdf:
+    '<span class="material-icons file-icon-symbol">picture_as_pdf</span>',
+
+  // ZIP / RAR
+  archive:
+    '<span class="material-icons file-icon-symbol">folder_zip</span>',
+
+  // Plain text files
+  text:
+    '<span class="material-icons file-icon-symbol">article</span>',
+
+  // Videos
+  video:
+    '<span class="material-icons file-icon-symbol">movie</span>',
 };
+
+
+
+
+
+
 
 const LOCATION_OPTIONS = [
   { value: 'anywhere', label: 'Anywhere in Drive', query: '' },
@@ -887,36 +925,147 @@ function createGridCard(file, selected) {
 }
 
 function renderInlineActions(file) {
-  const starIcon = file.starred ? '⭐' : '☆';
-  const starTitle = file.starred ? 'Unstar' : 'Star';
   const isTrashPage = state.context === 'trash';
-  
+  const starTitle = file.starred ? 'Remove from Starred' : 'Add to Starred';
+  const starIconName = file.starred ? 'star' : 'star_border';
+
   const kebabMenuItems = isTrashPage
     ? `
-        <div class="menu-item" data-action="details">View details</div>
-        <div class="menu-item" data-action="restore">Restore</div>
-        <div class="menu-item" data-action="delete">Delete forever</div>
+        <div class="menu-item" data-action="details">
+          <span class="material-icons icon">info</span>
+          <span class="label">View details</span>
+        </div>
+        <div class="menu-item" data-action="restore">
+          <span class="material-icons icon">restore_from_trash</span>
+          <span class="label">Restore</span>
+        </div>
+        <div class="menu-item" data-action="delete">
+          <span class="material-icons icon">delete_forever</span>
+          <span class="label">Delete forever</span>
+        </div>
       `
     : `
-        <div class="menu-item" data-action="details">View details</div>
-        <div class="menu-item" data-action="move">Move to…</div>
-        <div class="menu-item" data-action="offline">Make available offline</div>
-        <div class="menu-item" data-action="trash">Move to trash</div>
+        <!-- Open with submenu -->
+        <div class="menu-item submenu" data-action="open-with">
+          <span class="material-icons icon">open_in_new</span>
+          <span class="label">Open with</span>
+          <span class="material-icons arrow">chevron_right</span>
+          <div class="submenu-menu">
+            <div class="submenu-item" data-action="open-default">Open</div>
+            <div class="submenu-item" data-action="open-new-window">Open in new window</div>
+          </div>
+        </div>
+
+        <div class="divider"></div>
+
+        <!-- Download / Rename / Make a copy -->
+        <div class="menu-item" data-action="download">
+          <span class="material-icons icon">download</span>
+          <span class="label">Download</span>
+        </div>
+
+        <div class="menu-item" data-action="rename">
+          <span class="material-icons icon">drive_file_rename_outline</span>
+          <span class="label">Rename</span>
+        </div>
+
+        <div class="menu-item" data-action="make-copy">
+          <span class="material-icons icon">content_copy</span>
+          <span class="label">Make a copy</span>
+          <span class="shortcut">Ctrl+C Ctrl+V</span>
+        </div>
+
+        <div class="divider"></div>
+
+        <!-- Share submenu -->
+        <div class="menu-item submenu" data-action="share">
+          <span class="material-icons icon">person_add</span>
+          <span class="label">Share</span>
+          <span class="material-icons arrow">chevron_right</span>
+          <div class="submenu-menu">
+            <div class="submenu-item" data-action="share-people">Share…</div>
+            <div class="submenu-item" data-action="share-link">Copy link</div>
+          </div>
+        </div>
+
+        <!-- Organize submenu -->
+        <div class="menu-item submenu" data-action="organize">
+          <span class="material-icons icon">folder_open</span>
+          <span class="label">Organize</span>
+          <span class="material-icons arrow">chevron_right</span>
+          <div class="submenu-menu">
+            <div class="submenu-item" data-action="move">
+              Move to…
+            </div>
+            <div class="submenu-item" data-action="add-shortcut">
+              Add shortcut to Drive
+            </div>
+          </div>
+        </div>
+
+        <!-- File information submenu -->
+        <div class="menu-item submenu" data-action="details">
+          <span class="material-icons icon">info</span>
+          <span class="label">File information</span>
+          <span class="material-icons arrow">chevron_right</span>
+          <div class="submenu-menu">
+            <div class="submenu-item" data-action="details-pane">Details</div>
+            <div class="submenu-item" data-action="activity-pane">Activity</div>
+          </div>
+        </div>
+
+        <!-- Make available offline -->
+        <div class="menu-item" data-action="offline">
+          <span class="material-icons icon">offline_pin</span>
+          <span class="label">Make available offline</span>
+        </div>
+
+        <div class="divider"></div>
+
+        <!-- Move to trash / Not a helpful suggestion -->
+        <div class="menu-item" data-action="trash">
+          <span class="material-icons icon">delete</span>
+          <span class="label">Move to trash</span>
+        </div>
+
+        <div class="menu-item" data-action="not-helpful">
+          <span class="material-icons icon">thumb_down</span>
+          <span class="label">Not a helpful suggestion</span>
+        </div>
       `;
-  
+
   return `
-    <button class="icon-btn" data-action="share" title="Share">⤴</button>
-    <button class="icon-btn" data-action="download" title="Download">⬇</button>
-    <button class="icon-btn" data-action="rename" title="Rename">✏️</button>
-    <button class="icon-btn" data-action="star" title="${starTitle}">${starIcon}</button>
+    <button class="icon-btn" data-action="share" title="Share">
+      <span class="material-icons">person_add</span>
+    </button>
+    <button class="icon-btn" data-action="download" title="Download">
+      <span class="material-icons">download</span>
+    </button>
+    <button class="icon-btn" data-action="rename" title="Rename">
+      <span class="material-icons">drive_file_rename_outline</span>
+    </button>
+    <button class="icon-btn" data-action="star" title="${starTitle}">
+      <span class="material-icons">${starIconName}</span>
+    </button>
     <div class="kebab">
-      <button class="icon-btn kebab-toggle" aria-label="More options">⋮</button>
+      <button class="icon-btn kebab-toggle" aria-label="More options">
+        <span class="material-icons">more_vert</span>
+      </button>
       <div class="kebab-menu">
         ${kebabMenuItems}
       </div>
     </div>
   `;
 }
+
+
+
+
+
+
+
+
+
 
 function toggleSelection(id, isSelected) {
   if (isSelected) {
@@ -952,10 +1101,33 @@ function handleFileAction(action, fileId) {
   if (!file) return;
   console.log(`Action ${action} on ${file.name}`);
 
-  if (action === 'download' && file.storagePath) {
-    window.open(`/${file.storagePath}`, '_blank');
+  // --- OPEN / PREVIEW-LIKE ACTIONS ---
+
+  // "Open with" & "Open" submenu entries -> just open the file
+  if (action === 'open-with' || action === 'open-default') {
+    openFile(fileId);
     return;
   }
+
+  // Open in new window: prefer storagePath, otherwise fallback to openFile
+  if (action === 'open-new-window') {
+    if (file.storagePath) {
+      window.open(`/${file.storagePath}`, '_blank');
+    } else {
+      openFile(fileId);
+    }
+    return;
+  }
+
+  // Existing download action
+  if (action === 'download') {
+  // Force a real download from the backend
+  window.location.href = `/api/files/${fileId}/download`;
+  return;
+}
+
+
+  // --- TRASH / DELETE / RESTORE ---
 
   if (action === 'trash') {
     moveToTrash([fileId]);
@@ -976,23 +1148,10 @@ function handleFileAction(action, fileId) {
     return;
   }
 
+  // --- STAR / OFFLINE ---
+
   if (action === 'star') {
     toggleStar(fileId);
-    return;
-  }
-
-  if (action === 'share') {
-    openShareDialog(fileId);
-    return;
-  }
-
-  if (action === 'rename') {
-    openRenameDialog(fileId);
-    return;
-  }
-
-  if (action === 'move') {
-    openMoveDialog(fileId);
     return;
   }
 
@@ -1001,24 +1160,83 @@ function handleFileAction(action, fileId) {
     return;
   }
 
-  if (action === 'details') {
-    openDetailsDialog(fileId);
+  // --- SHARE & SUBMENU VARIANTS ---
+
+  // Share from main button or submenu entries "Share…" / "Copy link"
+  if (action === 'share' || action === 'share-people' || action === 'share-link') {
+    openShareDialog(fileId);
+    return;
   }
+
+  // --- RENAME / MOVE / ORGANIZE ---
+
+  if (action === 'rename') {
+    openRenameDialog(fileId);
+    return;
+  }
+
+  // "Move to…" and "Organize" submenu both open the move dialog
+  if (action === 'move' || action === 'organize') {
+    openMoveDialog(fileId);
+    return;
+  }
+
+  // "Add shortcut to Drive" – no backend for this, so just show a placeholder
+  if (action === 'add-shortcut') {
+    alert('“Add shortcut to Drive” is a visual placeholder in this prototype.');
+    return;
+  }
+
+  // --- DETAILS / ACTIVITY ---
+
+  // All of these just open the existing details dialog
+  if (action === 'details' || action === 'details-pane' || action === 'activity-pane') {
+    openDetailsDialog(fileId);
+    return;
+  }
+
+  // --- MAKE A COPY / NOT HELPFUL ---
+
+  if (action === 'make-copy') {
+     makeCopy(fileId);
+    return;
+  }
+
+  if (action === 'not-helpful') {
+    alert('Thanks for the feedback! (No ML here, just vibes 🫶)');
+    return;
+  }
+
+  // Fallback for anything we forgot to handle
+  console.warn('Unhandled file action:', action, 'for file', file);
 }
+
+
+
 
 function openFile(fileId) {
   const file = state.data.find((item) => item.id === fileId);
   if (!file) return;
+
   if (file.isFolder) {
     enterFolder(file);
+    return;
+  }
+
+  // If we have an offline copy, use the offline URL (handled by SW)
+  if (file.availableOffline) {
+    window.open(`/offline/files/${file.id}`, '_blank');
+    return;
+  }
+
+  // Otherwise, normal online behavior
+  if (file.storagePath) {
+    window.open(`/${file.storagePath}`, '_blank');
   } else {
-    if (file.storagePath) {
-      window.open(`/${file.storagePath}`, '_blank');
-    } else {
-      alert(`Previewing "${file.name}" (placeholder)`);
-    }
+    alert(`Previewing "${file.name}" (placeholder)`);
   }
 }
+
 
 function updateStorage(progressEl, copyEl) {
   if (!progressEl || !copyEl) return;
@@ -1048,10 +1266,80 @@ function updateStorage(progressEl, copyEl) {
   copyEl.textContent = `${formatBytesCompact(usedBytes)} of ${formatBytesCompact(quotaBytes)} used`;
 }
 
-function getIcon(file) {
-  if (file.isFolder) return TYPE_ICONS.folder;
-  return TYPE_ICONS[file.type] || '📄';
+function detectFileType(file) {
+  if (file.isFolder) return 'folder';
+
+  const mime = (file.mimeType || '').toLowerCase();
+  const name = (file.originalName || file.name || '').toLowerCase();
+
+  const hasExt = (exts) => exts.some(ext => name.endsWith(ext));
+
+  // PDFs
+  if (mime.includes('pdf') || hasExt(['.pdf'])) return 'pdf';
+
+  // Office docs (Word)
+  if (
+    mime.includes('word') ||
+    mime.includes('officedocument.word') ||
+    hasExt(['.doc', '.docx'])
+  ) {
+    return 'document';
+  }
+
+  // Spreadsheets (Excel)
+  if (
+    mime.includes('spreadsheet') ||
+    mime.includes('excel') ||
+    hasExt(['.xls', '.xlsx'])
+  ) {
+    return 'spreadsheet';
+  }
+
+  // Presentations (PowerPoint)
+  if (
+    mime.includes('presentation') ||
+    hasExt(['.ppt', '.pptx'])
+  ) {
+    return 'presentation';
+  }
+
+  // Zip / rar
+  if (
+    mime.includes('zip') ||
+    mime.includes('x-rar') ||
+    hasExt(['.zip', '.rar'])
+  ) {
+    return 'archive';
+  }
+
+  // Videos
+  if (
+    mime.includes('video') ||
+    hasExt(['.mp4', '.mov', '.avi', '.mkv'])
+  ) {
+    return 'video';
+  }
+
+  // Text files
+  if (
+    mime.includes('text') ||
+    hasExt(['.txt', '.md'])
+  ) {
+    return 'text';
+  }
+
+  // Default: treat as generic document
+  return 'document';
 }
+
+
+function getIcon(file) {
+  const logicalType = detectFileType(file);  // automatic classification
+  return TYPE_ICONS[logicalType] || TYPE_ICONS.document;
+}
+
+
+
 
 function formatDate(dateString) {
   const date = new Date(dateString);
@@ -1342,15 +1630,160 @@ async function toggleStar(fileId) {
   }
 }
 
+// ---- Offline storage helpers (IndexedDB in window context) ----
+
+const OFFLINE_DB_NAME = 'offline-files-db';
+const OFFLINE_STORE_NAME = 'files';
+
+function openOfflineDbWindow() {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(OFFLINE_DB_NAME, 1);
+    request.onupgradeneeded = (event) => {
+      const db = event.target.result;
+      if (!db.objectStoreNames.contains(OFFLINE_STORE_NAME)) {
+        const store = db.createObjectStore(OFFLINE_STORE_NAME, { keyPath: 'id' });
+        store.createIndex('id', 'id', { unique: true });
+      }
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+async function saveFileOffline(file, blob) {
+  const db = await openOfflineDbWindow();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(OFFLINE_STORE_NAME, 'readwrite');
+    const store = tx.objectStore(OFFLINE_STORE_NAME);
+    const record = {
+      id: file.id,
+      name: file.originalName || file.name,
+      mimeType: file.mimeType || 'application/octet-stream',
+      blob,
+    };
+    const req = store.put(record);
+    req.onsuccess = () => resolve();
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function removeFileOffline(id) {
+  const db = await openOfflineDbWindow();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(OFFLINE_STORE_NAME, 'readwrite');
+    const store = tx.objectStore(OFFLINE_STORE_NAME);
+    const req = store.delete(id);
+    req.onsuccess = () => resolve();
+    req.onerror = () => reject(req.error);
+  });
+}
+
+
 async function toggleOffline(fileId) {
   try {
     const response = await fetch(`/api/files/${fileId}/offline`, {
       method: 'POST',
     });
     if (!response.ok) throw new Error('Failed to toggle offline');
+
+    const updatedFile = await response.json();
+
+    // If turned ON: fetch file content and cache it in IndexedDB
+    if (updatedFile.availableOffline) {
+      if (!updatedFile.storagePath) {
+        console.warn('File has no storagePath, cannot cache offline.');
+      } else {
+        // Use the download endpoint we made earlier
+        const downloadResponse = await fetch(`/api/files/${fileId}/download`);
+        if (!downloadResponse.ok) {
+          throw new Error('Failed to download file for offline use');
+        }
+        const blob = await downloadResponse.blob();
+        await saveFileOffline(
+          {
+            id: updatedFile._id || updatedFile.id || fileId,
+            name: updatedFile.name,
+            originalName: updatedFile.originalName,
+            mimeType: updatedFile.mimeType,
+          },
+          blob
+        );
+        console.log('Cached offline copy of', updatedFile.name);
+      }
+    } else {
+      // If turned OFF: remove from IndexedDB
+      await removeFileOffline(updatedFile._id || updatedFile.id || fileId);
+      console.log('Removed offline copy of', updatedFile.name);
+    }
+
+    // Refresh UI
     await loadFiles();
     renderFiles(state.data, document.getElementById('file-list'));
   } catch (error) {
     console.error('Failed to toggle offline', error);
+    alert(error.message || 'Failed to toggle offline');
   }
 }
+
+
+async function makeCopy(fileId) {
+  try {
+    const response = await fetch(`/api/files/${fileId}/copy`, {
+      method: 'POST',
+    });
+
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}));
+      throw new Error(body.message || 'Failed to make a copy');
+    }
+
+    // Reload the list so the new copy appears
+    await loadFiles();
+    renderFiles(state.data, document.getElementById('file-list'));
+  } catch (error) {
+    alert(error.message || 'Failed to make a copy');
+    console.error('makeCopy error', error);
+  }
+}
+
+// Dynamically flip submenus left/right so they never go off-screen
+// Dynamically flip submenus left/right so they never go off-screen
+document.addEventListener(
+  'mouseover',
+  (event) => {
+    const submenuItem = event.target.closest('.menu-item.submenu');
+    if (!submenuItem) return;
+
+    const submenuMenu = submenuItem.querySelector('.submenu-menu');
+    if (!submenuMenu) return;
+
+    // Reset previous inline overrides
+    submenuMenu.style.left = '';
+    submenuMenu.style.right = '';
+    submenuMenu.style.marginLeft = '';
+    submenuMenu.style.marginRight = '';
+
+    // Make sure it's using the base "open right" CSS
+    // (left: 100%, margin-left: 4px)
+    const rect = submenuMenu.getBoundingClientRect();
+    const padding = 8; // minimal distance from viewport edges
+
+    // If submenu goes off the right edge -> flip to LEFT
+    if (rect.right > window.innerWidth - padding) {
+      submenuMenu.style.right = '100%';
+      submenuMenu.style.left = 'auto';
+      submenuMenu.style.marginRight = '4px';
+      submenuMenu.style.marginLeft = '0';
+    }
+    // If submenu goes off the left edge -> force RIGHT
+    else if (rect.left < padding) {
+      submenuMenu.style.left = '100%';
+      submenuMenu.style.right = 'auto';
+      submenuMenu.style.marginLeft = '4px';
+      submenuMenu.style.marginRight = '0';
+    }
+  },
+  true // capture phase so we run reliably when hovering
+);
+
+

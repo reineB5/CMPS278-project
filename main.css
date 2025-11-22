@@ -311,6 +311,9 @@ body {
    ================================ */
 
 /* Layout of the file row */
+.menu-item .label {
+  flex: 1;
+}
 .file-row {
   display: flex;
   align-items: center;
@@ -403,10 +406,18 @@ body {
     0 2px 6px rgba(60, 64, 67, .15);
   display: none;
   padding: 8px 0;
-  z-index: 20;
+  z-index: 2000;
   font-size: 14px;
   color: #202124;
 }
+
+/* In grid view, center the kebab menu over the card to avoid sidebar overlap */
+.file-list.grid-view .kebab-menu {
+  right: auto;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
 
 /* SHOW MENU ONLY WHEN JS ADDS .open */
 .kebab.open .kebab-menu {
@@ -428,11 +439,12 @@ body {
   background: #f1f3f4;
 }
 
-.menu-item .shortcut {
+.submenu-arrow {
   margin-left: auto;
-  font-size: 12px;
+  font-size: 18px;
   color: #5f6368;
 }
+
 
 .divider {
   height: 1px;
@@ -463,8 +475,8 @@ body {
 .submenu-menu {
   position: absolute;
   top: -4px;
-  right: 100%;          /* open to the left of main menu */
-  margin-right: 4px;
+  left: 100%;          /* open to the left of main menu */
+  margin-right:0;
   min-width: 220px;
   background: #fff;
   border: 1px solid #dadce0;
@@ -474,7 +486,7 @@ body {
     0 2px 6px rgba(60, 64, 67, .15);
   padding: 6px 0;
   display: none;
-  z-index: 30;
+  z-index: 3000;
 }
 
 .submenu-item {
@@ -928,7 +940,7 @@ body {
   background: #fff;
   position: relative;
   transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
-  overflow: hidden;
+  overflow: visible;
   min-width: 0;
   isolation: isolate;
 }
@@ -1029,6 +1041,7 @@ body {
 
 .grid-card .file-actions-inline {
   opacity: 0;
+  pointer-events: none;          
   transition: opacity 0.15s ease;
   justify-content: center;
   margin-top: auto;
@@ -1045,7 +1058,9 @@ body {
 .grid-card:hover .file-actions-inline,
 .grid-card.selected .file-actions-inline {
   opacity: 1;
+  pointer-events: auto;          
 }
+
 
 .grid-meta {
   display: flex;
@@ -1216,3 +1231,43 @@ dialog input[type="file"] {
   font-size: 14px;
   resize: vertical;
 }
+
+/* Make sure main content (file list + menus) stays above the sidebar */
+.sidebar {
+  position: relative;
+  z-index: 1;
+}
+
+.main {
+  position: relative;
+  z-index: 2;
+}
+
+/* 
+.file-icon-symbol {
+  font-size: 28px;
+  display: inline-block;
+  vertical-align: middle;
+  color: #5f6368;  
+} 
+*/
+.file-icon {
+  width: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* File icons using Material Icons font */
+.material-icons.file-icon-symbol {
+  font-size: 24px;
+  line-height: 1;
+  color: #5f6368; /* Google Drive gray */
+}
+
+
+
+
+
+
+
