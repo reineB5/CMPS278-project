@@ -279,6 +279,24 @@
     </form>
   </dialog>
 
+  <dialog id="shortcut-dialog">
+    <form id="shortcut-form" method="dialog">
+      <h2>Add shortcut to Drive</h2>
+      <p>Create a shortcut to "<span id="shortcut-file-name"></span>"</p>
+      <label>
+        Add shortcut to
+        <select id="shortcut-folder-select">
+          <option value="">My Drive</option>
+        </select>
+      </label>
+      <p class="form-error" id="shortcut-error" role="alert"></p>
+      <div class="dialog-actions">
+        <button type="button" id="shortcut-cancel">Cancel</button>
+        <button type="button" id="shortcut-create">Add shortcut</button>
+      </div>
+    </form>
+  </dialog>
+
   <dialog id="delete-dialog">
     <form id="delete-form" method="dialog">
       <h2>Delete forever?</h2>

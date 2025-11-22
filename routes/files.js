@@ -70,7 +70,7 @@ const sortMap = {
       parentId,
     } = req.query;
 
-    const currentUserEmail = req.user?.email;
+    const currentUserEmail = req.user?.email ? req.user.email.toLowerCase() : null;
     const baseQuery = { trashed: false };
     const andFilters = [];
 
@@ -87,9 +87,12 @@ const sortMap = {
       // For "Shared with me", show files shared *with* this user
       delete baseQuery.owner; // not owner-based here
       if (currentUserEmail) {
-        andFilters.push({ sharedWith: currentUserEmail });
+        // MongoDB array query: find documents where sharedWith array contains the email
+        // Using $in for explicit array matching
+        andFilters.push({ sharedWith: { $in: [currentUserEmail] } });
       }
-      baseQuery.location = 'Shared with me';
+      // Don't filter by location - shared files can be in "My Drive" from owner's perspective
+      // but should appear in "Shared with me" for recipients
     }
 
     if (view === 'starred') {
@@ -101,9 +104,8 @@ const sortMap = {
       baseQuery.trashed = true;
     }
 
-    if (view === 'shared') {
-      baseQuery.location = 'Shared with me';
-    }
+    // Don't set location filter for shared view - files shared with user
+    // should appear regardless of their location field
 
     if (view === 'starred') {
       baseQuery.starred = true;
@@ -265,9 +267,9 @@ router.post('/', async (req, res, next) => {
       payload.parentId = null;
       payload.location = payload.location || 'My Drive';
     }
-    // Force owner to be the logged-in user
-    payload.owner = req.user?.email || req.user?.username || 'Unknown';
-
+    // Force owner to be the logged-in user, normalized to lowercase
+    const ownerEmail = req.user?.email || req.user?.username || 'Unknown';
+    payload.owner = typeof ownerEmail === 'string' ? ownerEmail.toLowerCase() : ownerEmail;
 
     const file = await File.create(payload);
     res.status(201).json(file);
@@ -301,10 +303,11 @@ router.post('/upload', upload.single('file'), async (req, res, next) => {
       body.location = body.location || 'My Drive';
     }
 
+    const ownerEmail = req.user?.email || req.user?.username || 'Unknown';
     const fileDoc = await File.create({
       name: body.name || req.file.originalname,
-      // 🔹 OWNER = currently logged-in user (email or username)
-      owner: req.user?.email || req.user?.username || 'Unknown',
+      // 🔹 OWNER = currently logged-in user (email or username), normalized to lowercase
+      owner: typeof ownerEmail === 'string' ? ownerEmail.toLowerCase() : ownerEmail,
       type: inferredType,
       location: body.location,
       sharedWith: body.sharedWith || [],
@@ -362,7 +365,8 @@ router.get('/', async (req, res, next) => {
       parentId,
     } = req.query;
 
-    const currentUserEmail = req.user?.email || req.user?.username || null;
+    const rawEmail = req.user?.email || req.user?.username || null;
+    const currentUserEmail = rawEmail ? String(rawEmail).toLowerCase() : null;
 
     const baseQuery = { trashed: false };
     const andFilters = [];
@@ -380,9 +384,12 @@ router.get('/', async (req, res, next) => {
       // Files shared *with* me
       delete baseQuery.owner;
       if (currentUserEmail) {
-        andFilters.push({ sharedWith: currentUserEmail });
+        // MongoDB array query: find documents where sharedWith array contains the email
+        // Using $in for explicit array matching
+        andFilters.push({ sharedWith: { $in: [currentUserEmail] } });
       }
-      baseQuery.location = 'Shared with me';
+      // Don't filter by location - shared files can be in "My Drive" from owner's perspective
+      // but should appear in "Shared with me" for recipients
     }
 
     if (view === 'starred') {
@@ -542,7 +549,9 @@ router.post('/:id/share', async (req, res, next) => {
     const { sharedWith } = req.body;
     if (Array.isArray(sharedWith)) {
       file.sharedWith = sharedWith.filter(Boolean);
-      file.location = file.sharedWith.length > 0 ? 'Shared with me' : 'My Drive';
+      // Don't change location - location represents where file is from owner's perspective
+      // Shared files should remain in "My Drive" for the owner
+      // They appear in "Shared with me" for recipients via query, not location field
       await file.save();
     }
     
@@ -717,6 +726,57 @@ router.post('/:id/offline', async (req, res, next) => {
   }
 });
 
+router.post('/:id/shortcut', async (req, res, next) => {
+  try {
+    const targetFile = await File.findById(req.params.id);
+    if (!targetFile) return res.status(404).json({ message: 'File not found' });
+    
+    const { parentId } = req.body;
+    const ownerEmail = req.user?.email || req.user?.username || 'Unknown';
+    const normalizedOwner = typeof ownerEmail === 'string' ? ownerEmail.toLowerCase() : ownerEmail;
+    
+    // Resolve parent folder if provided
+    let finalParentId = null;
+    let location = 'My Drive';
+    if (parentId) {
+      const { parent, error } = await resolveParentFolder(parentId);
+      if (error) {
+        return res.status(400).json({ message: error });
+      }
+      if (parent) {
+        finalParentId = parent._id;
+        location = parent.location;
+      }
+    }
+    
+    // Create shortcut file
+    const shortcut = await File.create({
+      name: `${targetFile.name} (shortcut)`,
+      owner: normalizedOwner,
+      type: targetFile.type,
+      location: location,
+      sharedWith: [],
+      description: `Shortcut to ${targetFile.name}`,
+      uploadedAt: new Date(),
+      lastOpenedAt: new Date(),
+      sizeMb: 0,
+      sizeBytes: 0,
+      isFolder: false,
+      parentId: finalParentId,
+      starred: false,
+      trashed: false,
+      isUploaded: false,
+      availableOffline: false,
+      isShortcut: true,
+      shortcutTargetId: targetFile._id,
+    });
+    
+    res.status(201).json(shortcut);
+  } catch (error) {
+    next(error);
+  }
+});
+
 router.delete('/:id', async (req, res, next) => {
   try {
     const file = await File.findByIdAndDelete(req.params.id);
@@ -734,11 +794,13 @@ function normalizeBody(raw = {}) {
   if (typeof payload.sharedWith === 'string') {
     payload.sharedWith = payload.sharedWith
       .split(',')
-      .map((item) => item.trim())
+      .map((item) => item.trim().toLowerCase())
       .filter(Boolean);
   }
   if (Array.isArray(payload.sharedWith)) {
-    payload.sharedWith = payload.sharedWith.filter(Boolean);
+    payload.sharedWith = payload.sharedWith
+      .map((item) => (typeof item === 'string' ? item.trim().toLowerCase() : item))
+      .filter(Boolean);
   } else if (!payload.sharedWith) {
     payload.sharedWith = [];
   }
