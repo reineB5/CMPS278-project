@@ -1,0 +1,40 @@
+            _id: null,
+            totalSize: { $sum: '$sizeMb' },
+            totalBytes: {
+              $sum: {
+                $cond: [
+                  { $gt: ['$sizeBytes', 0] },
+                  '$sizeBytes',
+                  { $multiply: ['$sizeMb', 1024 * 1024] },
+                ],
+              },
+            },
+          },
+        },
+      ]),
+    ]);
+
+    const storageUsedMb = storageStats[0]?.totalSize || 0;
+    const storageUsedBytes =
+      storageStats[0]?.totalBytes || Math.round(storageUsedMb * 1024 * 1024);
+    const quotaMb = 15 * 1024;
+    const quotaBytes = quotaMb * 1024 * 1024;
+
+    res.json({
+      data: files,   // 🔹 includes storagePath, mimeType, isUploaded, etc.
+      meta: {
+        total,
+        limit: numericLimit,
+        skip: numericSkip,
+        storage: {
+          usedMb: storageUsedMb,
+          usedBytes: storageUsedBytes,
+          quotaMb,
+          quotaBytes,
+        },
+        availableFilters: {
+          // ...
+        },
+      },
+    });
+  } catch (error) {

@@ -38,8 +38,8 @@ const sortMap = {
       modified,
       search = '',
       advName = '',
+      advType = '',
       advOwner = '',
-      advShared = '',
       advContent = '',
       sort = 'recent',
       limit = 20,
@@ -61,8 +61,8 @@ const sortMap = {
       modified,
       search = '',
       advName = '',
+      advType = '',
       advOwner = '',
-      advShared = '',
       advContent = '',
       sort = 'recent',
       limit = 20,
@@ -114,7 +114,13 @@ const sortMap = {
     if (primary === 'files') baseQuery.isFolder = false;
     if (primary === 'folders') baseQuery.isFolder = true;
 
-    if (type) baseQuery.type = type;
+    const primaryTypeFilter = buildTypeFilter(type);
+    if (primaryTypeFilter) {
+      andFilters.push(primaryTypeFilter);
+    }
+    if (people) {
+      delete baseQuery.owner;
+    }
     if (location) baseQuery.location = location;
 
     if (parentId !== undefined) {
@@ -142,20 +148,32 @@ const sortMap = {
       andFilters.push({ name: { $regex: advName, $options: 'i' } });
     }
 
+    const typeFilter = buildTypeFilter(advType);
+    if (typeFilter) {
+      andFilters.push(typeFilter);
+    }
+
     if (advOwner) {
       andFilters.push({ owner: { $regex: advOwner, $options: 'i' } });
     }
 
     if (people) {
-      andFilters.push({ sharedWith: people });
+      delete baseQuery.owner; // allow matches beyond my owned files
+      const escaped = escapeRegex(String(people).trim());
+      const exactMatch = escaped ? new RegExp(`^${escaped}$`, 'i') : null;
+      if (exactMatch) {
+        andFilters.push({
+          $or: [
+            { owner: { $regex: exactMatch } },
+            { sharedWith: { $elemMatch: { $regex: exactMatch } } },
+          ],
+        });
+      }
     }
 
-    if (advShared) {
-      andFilters.push({ sharedWith: { $elemMatch: { $regex: advShared, $options: 'i' } } });
-    }
-
-    if (advContent) {
-      baseQuery.$text = { $search: advContent };
+    const contentFilter = buildContentFilter(advContent);
+    if (contentFilter) {
+      andFilters.push(contentFilter);
     }
 
     const query = { ...baseQuery };
@@ -206,16 +224,17 @@ const [files, total, storageStats] = await Promise.all([
     const quotaMb = 15 * 1024;
     const quotaBytes = quotaMb * 1024 * 1024;
 
+    const peopleSet = new Set();
+    files.forEach((file) => {
+      if (file.owner) peopleSet.add(String(file.owner).toLowerCase());
+      (file.sharedWith || []).forEach((p) => {
+        if (p) peopleSet.add(String(p).toLowerCase());
+      });
+    });
+
     const availableFilters = {
       types: [...new Set(files.map((file) => file.type))],
-      people: [
-        ...new Set(
-          files
-            .map((file) => file.sharedWith || [])
-            .flat()
-            .filter(Boolean)
-        ),
-      ],
+      people: [...peopleSet],
       locations: [...new Set(files.map((file) => file.location))],
     };
 
@@ -286,7 +305,7 @@ router.post('/upload', upload.single('file'), async (req, res, next) => {
 
     const now = new Date();
     const body = normalizeBody(req.body);
-    const inferredType = body.type || mapMimeToType(req.file.mimetype);
+    const inferredType = body.type || mapMimeToType(req.file.mimetype, req.file.originalname);
     const fileSizeBytes = req.file.size;
     const fileSizeMb = Number((fileSizeBytes / (1024 * 1024)).toFixed(2));
     const { parent, error } = await resolveParentFolder(body.parentId);
@@ -357,7 +376,6 @@ router.get('/', async (req, res, next) => {
       search = '',
       advName = '',
       advOwner = '',
-      advShared = '',
       advContent = '',
       sort = 'recent',
       limit = 20,
@@ -398,7 +416,15 @@ router.get('/', async (req, res, next) => {
 
     if (primary === 'files') baseQuery.isFolder = false;
     if (primary === 'folders') baseQuery.isFolder = true;
-    if (type) baseQuery.type = type;
+    const primaryTypeFilter = buildTypeFilter(type);
+    if (primaryTypeFilter) {
+      andFilters.push(primaryTypeFilter);
+    }
+
+    // When filtering by people, allow results beyond just my owned files
+    if (people) {
+      delete baseQuery.owner;
+    }
     if (location) baseQuery.location = location;
 
     if (parentId !== undefined) {
@@ -427,11 +453,26 @@ router.get('/', async (req, res, next) => {
     if (advOwner) {
       andFilters.push({ owner: { $regex: advOwner, $options: 'i' } });
     }
-    if (advShared) {
-      andFilters.push({ sharedWith: { $regex: advShared, $options: 'i' } });
+    const typeFilter = buildTypeFilter(advType);
+    if (typeFilter) {
+      andFilters.push(typeFilter);
     }
-    if (advContent) {
-      andFilters.push({ description: { $regex: advContent, $options: 'i' } });
+    if (people) {
+      delete baseQuery.owner; // allow matches beyond my owned files
+      const escaped = escapeRegex(String(people).trim());
+      const exactMatch = escaped ? new RegExp(`^${escaped}$`, 'i') : null;
+      if (exactMatch) {
+        andFilters.push({
+          $or: [
+            { owner: { $regex: exactMatch } },
+            { sharedWith: { $elemMatch: { $regex: exactMatch } } },
+          ],
+        });
+      }
+    }
+    const contentFilter = buildContentFilter(advContent);
+    if (contentFilter) {
+      andFilters.push(contentFilter);
     }
 
     const query = { ...baseQuery };
@@ -479,6 +520,20 @@ router.get('/', async (req, res, next) => {
     const quotaMb = 15 * 1024;
     const quotaBytes = quotaMb * 1024 * 1024;
 
+    const peopleSet = new Set();
+    files.forEach((file) => {
+      if (file.owner) peopleSet.add(String(file.owner).toLowerCase());
+      (file.sharedWith || []).forEach((p) => {
+        if (p) peopleSet.add(String(p).toLowerCase());
+      });
+    });
+
+    const availableFilters = {
+      types: [...new Set(files.map((file) => file.type))],
+      people: [...peopleSet],
+      locations: [...new Set(files.map((file) => file.location))],
+    };
+
     res.json({
       data: files,   // 🔹 includes storagePath, mimeType, isUploaded, etc.
       meta: {
@@ -491,9 +546,7 @@ router.get('/', async (req, res, next) => {
           quotaMb,
           quotaBytes,
         },
-        availableFilters: {
-          // ...
-        },
+        availableFilters,
       },
     });
   } catch (error) {
@@ -851,13 +904,137 @@ async function resolveParentFolder(parentId) {
   return { parent };
 }
 
-function mapMimeToType(mime = '') {
-  if (mime.includes('spreadsheet') || mime.includes('excel')) return 'spreadsheet';
-  if (mime.includes('presentation')) return 'presentation';
-  if (mime.includes('word') || mime.includes('document') || mime.includes('text')) return 'document';
-  if (mime.includes('pdf')) return 'pdf';
-  if (mime.includes('zip') || mime.includes('rar')) return 'archive';
-  if (mime.includes('video')) return 'video';
-  if (mime.includes('plain')) return 'text';
+function mapMimeToType(mime = '', originalName = '') {
+  const lowerMime = (mime || '').toLowerCase();
+  const name = (originalName || '').toLowerCase();
+
+  const hasExt = (exts) => exts.some((ext) => name.endsWith(`.${ext}`));
+
+  if (lowerMime.includes('spreadsheet') || lowerMime.includes('excel') || hasExt(['xls', 'xlsx', 'csv', 'tsv', 'ods'])) {
+    return 'spreadsheet';
+  }
+  if (
+    lowerMime.includes('presentation') ||
+    lowerMime.includes('powerpoint') ||
+    hasExt(['ppt', 'pptx', 'pps', 'odp'])
+  ) {
+    return 'presentation';
+  }
+  if (lowerMime.includes('pdf') || hasExt(['pdf'])) {
+    return 'pdf';
+  }
+  if (lowerMime.includes('zip') || lowerMime.includes('x-rar') || lowerMime.includes('7z') || hasExt(['zip', 'rar', '7z'])) {
+    return 'archive';
+  }
+  if (lowerMime.includes('video') || hasExt(['mp4', 'mov', 'avi', 'mkv', 'webm'])) {
+    return 'video';
+  }
+  if (lowerMime.includes('text') || lowerMime.includes('plain') || hasExt(['txt', 'md', 'rtf'])) {
+    return 'text';
+  }
+  if (
+    lowerMime.includes('word') ||
+    lowerMime.includes('officedocument.word') ||
+    lowerMime.includes('msword') ||
+    hasExt(['doc', 'docx', 'odt', 'pages', 'rtf'])
+  ) {
+    return 'document';
+  }
+
   return 'document';
+}
+
+function buildTypeFilter(advType = '') {
+  if (!advType) return null;
+  const normalized = String(advType).toLowerCase();
+  if (normalized === 'folder') {
+    return { isFolder: true };
+  }
+
+  const typeConfig = {
+    document: {
+      values: ['document', 'word', 'doc', 'docx', 'officedocument.word', 'msword'],
+      exts: ['doc', 'docx', 'odt', 'pages', 'rtf'],
+      mimeHints: ['word', 'officedocument.word', 'msword', 'application/vnd.oasis.opendocument.text'],
+    },
+    spreadsheet: {
+      values: ['spreadsheet', 'excel', 'sheet', 'xls', 'xlsx'],
+      exts: ['xls', 'xlsx', 'csv', 'tsv', 'ods'],
+      mimeHints: ['spreadsheet', 'excel', 'sheet', 'application/vnd.ms-excel', 'application/vnd.oasis.opendocument.spreadsheet'],
+    },
+    presentation: {
+      values: ['presentation', 'powerpoint', 'ppt', 'pptx', 'pps'],
+      exts: ['ppt', 'pptx', 'pps', 'odp'],
+      mimeHints: ['presentation', 'powerpoint', 'officedocument.presentation', 'application/vnd.ms-powerpoint'],
+    },
+    pdf: {
+      values: ['pdf'],
+      exts: ['pdf'],
+      mimeHints: ['pdf'],
+    },
+    archive: {
+      values: ['archive', 'zip', 'rar', '7z'],
+      exts: ['zip', 'rar', '7z'],
+      mimeHints: ['zip', 'x-rar', 'x-7z'],
+    },
+    text: {
+      values: ['text', 'txt', 'md', 'markdown', 'rtf'],
+      exts: ['txt', 'md', 'rtf'],
+      mimeHints: ['text', 'plain', 'markdown'],
+    },
+    video: {
+      values: ['video', 'mp4', 'mov', 'avi', 'mkv', 'webm'],
+      exts: ['mp4', 'mov', 'avi', 'mkv', 'webm'],
+      mimeHints: ['video', 'mp4', 'quicktime', 'x-msvideo', 'matroska'],
+    },
+  };
+
+  const config = typeConfig[normalized];
+  if (!config) {
+    // fallback to exact type match
+    return { type: { $regex: new RegExp(`^${advType}$`, 'i') } };
+  }
+
+  const extPattern = config.exts.length ? `\\.(${config.exts.join('|')})$` : null;
+  const valuePattern = config.values.length
+    ? new RegExp(`(${config.values.map((v) => v.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\$&')).join('|')})`, 'i')
+    : null;
+  const mimePattern = config.mimeHints.length
+    ? new RegExp(`(${config.mimeHints.map((v) => v.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\$&')).join('|')})`, 'i')
+    : null;
+
+  const orFilters = [];
+  if (valuePattern) {
+    orFilters.push({ type: { $regex: valuePattern } });
+  }
+  if (mimePattern) {
+    orFilters.push({ mimeType: { $regex: mimePattern } });
+  }
+  if (extPattern) {
+    orFilters.push(
+      { originalName: { $regex: extPattern, $options: 'i' } },
+      { name: { $regex: extPattern, $options: 'i' } },
+      { storagePath: { $regex: extPattern, $options: 'i' } }
+    );
+  }
+
+  return orFilters.length ? { $or: orFilters } : null;
+}
+
+function escapeRegex(input = '') {
+  return input.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function buildContentFilter(term = '') {
+  if (!term) return null;
+  const regex = new RegExp(escapeRegex(term), 'i');
+  return {
+    $or: [
+      { description: { $regex: regex } },
+      { content: { $regex: regex } },
+      { extractedText: { $regex: regex } },
+      { name: { $regex: regex } },
+      { originalName: { $regex: regex } },
+    ],
+  };
 }

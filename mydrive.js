@@ -32,6 +32,28 @@ const TYPE_ICONS = {
     '<span class="material-icons file-icon-symbol">movie</span>',
 };
 
+const DEFAULT_TYPE_FILTERS = [
+  'document', // Word
+  'spreadsheet', // Excel
+  'presentation', // PowerPoint
+  'text',
+  'archive', // ZIP/RAR
+  'pdf',
+  'video',
+  'folder',
+];
+
+const TYPE_LABELS = {
+  document: 'Word',
+  spreadsheet: 'Excel',
+  presentation: 'PowerPoint',
+  text: 'Text',
+  archive: 'ZIP/RAR',
+  pdf: 'PDF',
+  video: 'Video',
+  folder: 'Folder',
+};
+
 
 const LOCATION_OPTIONS = [
   { value: 'anywhere', label: 'Anywhere in Drive', query: '' },
@@ -250,9 +272,9 @@ document.addEventListener('DOMContentLoaded', () => {
       event.preventDefault();
       state.advancedFilters = {
         name: document.getElementById('adv-name')?.value.trim() || '',
+        type: document.getElementById('adv-type')?.value || '',
         content: document.getElementById('adv-content')?.value.trim() || '',
         owner: document.getElementById('adv-owner')?.value.trim() || '',
-        shared: document.getElementById('adv-shared')?.value.trim() || '',
       };
       advancedDialog.close();
       refresh();
@@ -929,8 +951,8 @@ async function loadFiles() {
     modified: state.modifiedFilter,
     parentId: getParentQueryParam(),
     advName: state.advancedFilters.name || '',
+    advType: state.advancedFilters.type || '',
     advOwner: state.advancedFilters.owner || '',
-    advShared: state.advancedFilters.shared || '',
     advContent: state.advancedFilters.content || '',
   });
 
@@ -948,12 +970,32 @@ async function loadFiles() {
   const payload = await response.json();
   let data = (payload.data || []).map(normalizeFile).filter(applyAdvancedFilters);
 
+  // Client-side safety net: ensure type filter matches logical type detection
+  if (state.typeFilter) {
+    data = data.filter((file) => {
+      const logicalType = detectFileType(file);
+      return (logicalType || '').toLowerCase() === state.typeFilter.toLowerCase();
+    });
+  }
+
+  // Client-side safety net: ensure people filter matches owner or sharedWith
+  if (state.peopleFilter) {
+    const peopleNeedle = state.peopleFilter.toLowerCase().trim();
+    data = data.filter((file) => {
+      const ownerMatch = (file.owner || '').toLowerCase() === peopleNeedle;
+      const sharedMatch = (file.sharedWith || []).some(
+        (p) => (p || '').toLowerCase() === peopleNeedle
+      );
+      return ownerMatch || sharedMatch;
+    });
+  }
+
+  // Apply client-side sort so it matches the selected sort even after local filtering
+  data = sortFiles(data, state.sort);
+
   // Home root shows 20 most recent; inside folders show actual contents
   if (state.context === 'home' && !state.currentFolderId) {
-    data = data
-      .slice()
-      .sort((a, b) => new Date(b.lastOpenedAt || b.uploadedAt || 0) - new Date(a.lastOpenedAt || a.uploadedAt || 0))
-      .slice(0, 20);
+    data = data.slice(0, 20);
   }
 
   state.data = data;
@@ -991,12 +1033,11 @@ function normalizeFile(file) {
 }
 
 function applyAdvancedFilters(file) {
-  const { name = '', owner = '', shared = '', content = '' } = state.advancedFilters;
+  const { name = '', type = '', owner = '', content = '' } = state.advancedFilters;
+  const logicalType = detectFileType(file);
   const matchesName = !name || (file.name || '').toLowerCase().includes(name.toLowerCase());
+  const matchesType = !type || (logicalType || '').toLowerCase() === type.toLowerCase();
   const matchesOwner = !owner || (file.owner || '').toLowerCase().includes(owner.toLowerCase());
-  const matchesShared =
-    !shared ||
-    (file.sharedWith || []).some((p) => (p || '').toLowerCase().includes(shared.toLowerCase()));
 
   const contentHaystack =
     file.content ||
@@ -1007,12 +1048,13 @@ function applyAdvancedFilters(file) {
   const matchesContent =
     !content || contentHaystack.toLowerCase().includes(content.toLowerCase());
 
-  return matchesName && matchesOwner && matchesShared && matchesContent;
+  return matchesName && matchesType && matchesOwner && matchesContent;
 }
 
 function populateDynamicFilters() {
-  const { types, people } = state.filterOptions;
-  fillSelect(document.getElementById('filter-type'), types);
+  const { types = [], people } = state.filterOptions;
+  const typeOptions = Array.from(new Set([...DEFAULT_TYPE_FILTERS, ...types]));
+  fillTypeSelect(document.getElementById('filter-type'), typeOptions);
   fillSelect(document.getElementById('filter-people'), people);
   fillLocationSelect(document.getElementById('filter-location'));
 }
@@ -1030,6 +1072,50 @@ function fillSelect(select, options = []) {
   if (options.includes(currentValue)) {
     select.value = currentValue;
   }
+}
+
+function fillTypeSelect(select, options = []) {
+  if (!select) return;
+  const currentValue = select.value;
+  select.innerHTML = `<option value="">All</option>`;
+  options.forEach((option) => {
+    const opt = document.createElement('option');
+    opt.value = option;
+    opt.textContent = TYPE_LABELS[option] || option;
+    select.appendChild(opt);
+  });
+  if (options.includes(currentValue)) {
+    select.value = currentValue;
+  }
+}
+
+function sortFiles(files = [], sort = 'recent') {
+  const sorted = [...files];
+  const byName = (a, b) => (a.name || '').localeCompare(b.name || '', undefined, { sensitivity: 'base' });
+  const bySize = (a, b) => (b.sizeMb || 0) - (a.sizeMb || 0);
+  const byUploaded = (a, b) =>
+    new Date(b.uploadedAt || 0).getTime() - new Date(a.uploadedAt || 0).getTime();
+  const byRecent = (a, b) =>
+    new Date(b.lastOpenedAt || b.uploadedAt || 0).getTime() -
+    new Date(a.lastOpenedAt || a.uploadedAt || 0).getTime();
+
+  switch (sort) {
+    case 'name':
+      sorted.sort(byName);
+      break;
+    case 'size':
+      sorted.sort(bySize);
+      break;
+    case 'uploadedAt':
+      sorted.sort(byUploaded);
+      break;
+    case 'recent':
+    default:
+      sorted.sort(byRecent);
+      break;
+  }
+
+  return sorted;
 }
 
 function fillLocationSelect(select) {
@@ -1588,8 +1674,10 @@ function detectFileType(file) {
 
   const mime = (file.mimeType || '').toLowerCase();
   const name = (file.originalName || file.name || '').toLowerCase();
+  const storage = (file.storagePath || '').toLowerCase();
 
-  const hasExt = (exts) => exts.some(ext => name.endsWith(ext));
+  const hasExt = (exts) =>
+    exts.some((ext) => name.endsWith(ext) || storage.endsWith(ext));
 
   // PDFs
   if (mime.includes('pdf') || hasExt(['.pdf'])) return 'pdf';
