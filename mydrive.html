@@ -143,10 +143,6 @@
       <label>File name
         <input type="text" id="adv-name">
       </label>
-      <label id="new-file-upload-row">
-        Upload file or folder
-        <input type="file" id="new-file-upload" name="file" accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,.zip,.rar,.mp4,.mov,.mkv,.png,.jpg,.jpeg">
-      </label>
       <label>Contains words
         <input type="text" id="adv-content">
       </label>
@@ -211,6 +207,30 @@
       <label>
         Size (MB)
         <input type="number" name="sizeMb" min="0" step="1" placeholder="0">
+      </label>
+
+      <label id="new-file-upload-row">
+        Upload content
+        <div class="upload-row">
+          <button type="button" id="pick-file-btn" class="outline-btn">Choose file(s)</button>
+          <input
+            type="file"
+            id="new-file-upload-file"
+            name="file"
+            accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,.zip,.rar,.mp4,.mov,.mkv,.png,.jpg,.jpeg"
+            hidden
+          >
+          <button type="button" id="pick-folder-btn" class="outline-btn">Choose folder</button>
+          <input
+            type="file"
+            id="new-file-upload-folder"
+            name="folder"
+            webkitdirectory
+            directory
+            multiple
+            hidden
+          >
+        </div>
       </label>
 
       <label class="checkbox-field">

@@ -97,12 +97,16 @@ document.addEventListener('DOMContentLoaded', () => {
   const newFileCancel = document.getElementById('new-file-cancel');
   const newFileError = document.getElementById('new-file-error');
   const newFileSubmit = document.getElementById('new-file-submit');
-  const newFileUpload = document.getElementById('new-file-upload');
+  const newFileUploadFile = document.getElementById('new-file-upload-file');
+  const newFileUploadFolder = document.getElementById('new-file-upload-folder');
+  const pickFileBtn = document.getElementById('pick-file-btn');
+  const pickFolderBtn = document.getElementById('pick-folder-btn');
   const newFileUploadRow = document.getElementById('new-file-upload-row');
   const typeSelectInForm = newFileForm?.querySelector('select[name="type"]');
   const sizeInput = newFileForm?.querySelector('input[name="sizeMb"]');
   const nameInput = newFileForm?.querySelector('input[name="name"]');
-  const defaultAccept = newFileUpload?.getAttribute('accept') || '';
+  const defaultAccept = newFileUploadFile?.getAttribute('accept') || '';
+  let selectedUploadFiles = [];
   const profileElements = getProfileElements();
   const breadcrumb = document.getElementById('folder-breadcrumb');
   fillLocationSelect(filterLocation);
@@ -256,23 +260,14 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   const toggleUploadRow = () => {
-    if (!typeSelectInForm || !newFileUploadRow || !newFileUpload) return;
+    if (!typeSelectInForm || !newFileUploadRow) return;
     const isFolderType = typeSelectInForm.value === 'folder';
-    newFileUpload.value = '';
+    selectedUploadFiles = [];
+    if (newFileUploadFile) newFileUploadFile.value = '';
+    if (newFileUploadFolder) newFileUploadFolder.value = '';
     resetSizeInput();
 
-    newFileUpload.removeAttribute('webkitdirectory');
-    newFileUpload.removeAttribute('directory');
-    newFileUpload.removeAttribute('multiple');
-    newFileUpload.setAttribute('accept', defaultAccept);
-
-    if (isFolderType) {
-      newFileUpload.removeAttribute('accept');
-      newFileUpload.setAttribute('webkitdirectory', '');
-      newFileUpload.setAttribute('directory', '');
-      newFileUpload.setAttribute('multiple', '');
-    }
-
+    // Keep the row visible regardless of type; buttons determine file vs folder.
     newFileUploadRow.style.display = 'flex';
   };
 
@@ -284,19 +279,20 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   typeSelectInForm?.addEventListener('change', toggleUploadRow);
-  newFileUpload?.addEventListener('change', () => {
-    if (!sizeInput) return;
-    const files = newFileUpload.files ? Array.from(newFileUpload.files) : [];
+  const handleUploadSelection = (files = [], isFolderSelection = false) => {
+    selectedUploadFiles = files;
     if (files.length) {
       const totalSizeMb = files.reduce((sum, f) => sum + f.size, 0) / (1024 * 1024);
       sizeInput.value = totalSizeMb.toFixed(2);
       sizeInput.readOnly = true;
 
-      const isFolderType = typeSelectInForm?.value === 'folder';
-      if (isFolderType && nameInput) {
-        const relPath = files[0].webkitRelativePath || files[0].name;
-        const folderName = relPath.split('/')[0] || relPath;
-        if (!nameInput.value) nameInput.value = folderName;
+      if (isFolderSelection) {
+        if (typeSelectInForm) typeSelectInForm.value = 'folder';
+        if (nameInput) {
+          const relPath = files[0].webkitRelativePath || files[0].name;
+          const folderName = relPath.split('/')[0] || relPath;
+          if (!nameInput.value) nameInput.value = folderName;
+        }
       } else {
         const guessedType = guessTypeFromFilename(files[0].name);
         if (guessedType && typeSelectInForm) {
@@ -306,7 +302,20 @@ document.addEventListener('DOMContentLoaded', () => {
     } else {
       resetSizeInput();
     }
+  };
+
+  newFileUploadFile?.addEventListener('change', () => {
+    const files = newFileUploadFile.files ? Array.from(newFileUploadFile.files) : [];
+    handleUploadSelection(files, false);
   });
+
+  newFileUploadFolder?.addEventListener('change', () => {
+    const files = newFileUploadFolder.files ? Array.from(newFileUploadFolder.files) : [];
+    handleUploadSelection(files, true);
+  });
+
+  pickFileBtn?.addEventListener('click', () => newFileUploadFile?.click());
+  pickFolderBtn?.addEventListener('click', () => newFileUploadFolder?.click());
 
   newFileCancel?.addEventListener('click', () => {
     newFileDialog?.close();
@@ -340,7 +349,7 @@ document.addEventListener('DOMContentLoaded', () => {
       parentId: getCurrentFolderId(),
     };
 
-    const selectedFiles = newFileUpload?.files ? Array.from(newFileUpload.files) : [];
+    const selectedFiles = selectedUploadFiles;
 
     if (payload.isFolder) {
       payload.type = 'folder';
@@ -385,7 +394,9 @@ document.addEventListener('DOMContentLoaded', () => {
           throw new Error(body.message || 'Failed to create item.');
         }
         newFileForm.reset();
-        if (newFileUpload) newFileUpload.value = '';
+        selectedUploadFiles = [];
+        if (newFileUploadFile) newFileUploadFile.value = '';
+        if (newFileUploadFolder) newFileUploadFolder.value = '';
         resetSizeInput();
         newFileDialog?.close();
         await refresh();
