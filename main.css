@@ -895,6 +895,7 @@ body {
   display: flex;
   align-items: center;
   gap: 10px;
+  min-width: 0;
 }
 
 /* Only apply grid-area to list rows, not grid cards */
@@ -915,6 +916,9 @@ body {
 
 .file-name {
   font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .file-meta {
@@ -1314,6 +1318,158 @@ dialog input[type="file"] {
   font-size: 24px;
   line-height: 1;
   color: #5f6368; /* Google Drive gray */
+}
+
+/* Responsive adjustments */
+@media (max-width: 1024px) {
+  .container {
+    flex-direction: column;
+  }
+
+  .sidebar {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+  }
+
+  .sidebar ul {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin: 0;
+  }
+
+  .sidebar .storage {
+    margin-left: auto;
+  }
+
+  .main {
+    width: 100%;
+  }
+
+  .topbar {
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .search-box {
+    flex: 1 1 100%;
+  }
+
+  .top-buttons {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .filter-bar {
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .filter-chip,
+  .sort-control {
+    flex: 1 1 220px;
+  }
+
+  .selection-actions {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .file-row {
+    grid-template-columns: 32px minmax(0, 1fr) 140px min-content;
+    grid-template-areas: "checkbox main owner actions";
+    padding: 8px 12px;
+  }
+
+  .file-name {
+    font-size: 14px;
+  }
+
+  .file-meta,
+  .file-owner,
+  .file-date,
+  .file-location {
+    font-size: 12px;
+  }
+
+  .file-date,
+  .file-location {
+    display: none;
+  }
+
+  .file-list.grid-view {
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .sidebar {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .sidebar ul {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .top-buttons {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .filter-chip,
+  .sort-control {
+    flex: 1 1 100%;
+  }
+
+  .folder-breadcrumb {
+    flex-wrap: wrap;
+  }
+
+  .file-row {
+    grid-template-columns: 28px minmax(0, 1fr) min-content;
+    grid-auto-rows: auto;
+    row-gap: 4px;
+    align-items: flex-start;
+    padding: 8px 10px;
+  }
+
+  .file-owner,
+  .file-date,
+  .file-location {
+    display: none;
+  }
+
+  .file-row .file-meta {
+    display: block;
+    font-size: 12px;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+
+  .file-row .file-checkbox {
+    align-self: flex-start;
+  }
+
+  .file-row .file-main {
+    align-items: flex-start;
+  }
+
+  .file-row .file-actions-inline {
+    grid-area: auto;
+    grid-column: 3 / 4;
+    align-self: flex-start;
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .file-list.grid-view {
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  }
 }
 
 
