@@ -62,31 +62,32 @@
 
       <section class="selection-bar hidden" id="selection-bar">
         <p><span id="selection-count">0</span> selected</p>
-            <div class="kebab">
-             <button class="icon-btn kebab-toggle" aria-label="More actions">
-               <span class="material-icons">more_vert</span>
-             </button>
-             <div class="kebab-menu">
-               <div class="menu-item" data-bulk="rename">
+        <div class="selection-actions">
+          <button class="outline-btn" data-bulk="share" data-requires-single>Share</button>
+          <button class="outline-btn" data-bulk="download">Download</button>
+          <button class="outline-btn" data-bulk="move">Move</button>
+          <button class="outline-btn destructive" data-bulk="delete">Delete</button>
+          <div class="kebab">
+            <button class="icon-btn kebab-toggle" aria-label="More actions">
+              <span class="material-icons">more_vert</span>
+            </button>
+            <div class="kebab-menu">
+              <div class="menu-item" data-bulk="rename" data-requires-single>
                 <span class="material-icons icon">drive_file_rename_outline</span>
                 <span class="label">Rename</span>
               </div>
               <div class="menu-item" data-bulk="make-copy">
-               <span class="material-icons icon">content_copy</span>
-               <span class="label">Make a copy</span>
-              </div>
-              <div class="menu-item" data-bulk="star">
-                <span class="material-icons icon">star</span>
-                <span class="label">Add to Starred</span>
+                <span class="material-icons icon">content_copy</span>
+                <span class="label">Make a copy</span>
               </div>
               <div class="divider"></div>
-              <div class="menu-item" data-bulk="details">
-               <span class="material-icons icon">info</span>
-               <span class="label">View details</span>
+              <div class="menu-item" data-bulk="details" data-requires-single>
+                <span class="material-icons icon">info</span>
+                <span class="label">View details</span>
+              </div>
             </div>
-         </div>
+          </div>
         </div>
-
       </section>
 
       <section class="filter-bar" id="filter-bar">
@@ -143,7 +144,7 @@
         <input type="text" id="adv-name">
       </label>
       <label id="new-file-upload-row">
-        Upload file
+        Upload file or folder
         <input type="file" id="new-file-upload" name="file" accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,.zip,.rar,.mp4,.mov,.mkv,.png,.jpg,.jpeg">
       </label>
       <label>Contains words
@@ -165,27 +166,39 @@
   <dialog id="new-file-dialog">
     <form id="new-file-form" method="dialog">
       <h2>Create item</h2>
+
       <label>
         Name
         <input type="text" name="name" required placeholder="File or folder name">
       </label>
+
       <label>
         Type
         <select name="type" required>
-          <option value="document">Document</option>
-          <option value="spreadsheet">Spreadsheet</option>
-          <option value="presentation">Presentation</option>
-          <option value="pdf">PDF</option>
-          <option value="video">Video</option>
-          <option value="archive">Archive</option>
-          <option value="text">Text</option>
+          <!-- office document (Word) -->
+          <option value="document">Word</option>
+
+          <!-- spreadsheet (Excel) -->
+          <option value="spreadsheet">Excel</option>
+
+          <!-- plain text files -->
+          <option value="text">Text files</option>
+
+          <!-- zip/rar archives -->
+          <option value="archive">ZIP/RAR files</option>
+
+          <!-- pdf -->
+          <option value="pdf">PDF files</option>
+
+          <!-- video -->
+          <option value="video">Videos</option>
+
+          <!-- folders -->
           <option value="folder">Folder</option>
         </select>
       </label>
-      <label>
-        Owner
-        <input type="text" name="owner" required placeholder="Owner email or name">
-      </label>
+
+
       <label>
         Location
         <select name="location" required>
@@ -194,25 +207,28 @@
           <option value="Trash">Trash</option>
         </select>
       </label>
+
       <label>
         Size (MB)
         <input type="number" name="sizeMb" min="0" step="1" placeholder="0">
       </label>
-      <label>
-        Shared with (comma separated emails)
-        <input type="text" name="sharedWith" placeholder="user@example.com, teammate@example.com">
-      </label>
+
       <label class="checkbox-field">
         <input type="checkbox" name="starred">
         Mark as starred
       </label>
+
       <p class="form-error" id="new-file-error" role="alert"></p>
+
       <div class="dialog-actions">
         <button type="button" id="new-file-cancel">Cancel</button>
         <button type="submit" id="new-file-submit">Create</button>
       </div>
     </form>
   </dialog>
+
+
+
 
   <dialog id="share-dialog">
     <form id="share-form" method="dialog">

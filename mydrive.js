@@ -115,6 +115,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const newFileUploadRow = document.getElementById('new-file-upload-row');
   const typeSelectInForm = newFileForm?.querySelector('select[name="type"]');
   const sizeInput = newFileForm?.querySelector('input[name="sizeMb"]');
+  const nameInput = newFileForm?.querySelector('input[name="name"]');
+  const defaultAccept = newFileUpload?.getAttribute('accept') || '';
   const profileElements = getProfileElements();
   const breadcrumb = document.getElementById('folder-breadcrumb');
   fillLocationSelect(filterLocation);
@@ -219,6 +221,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (k !== insideKebab) k.classList.remove('open');
       });
       insideKebab.classList.toggle('open');
+      if (insideKebab.classList.contains('open')) {
+        positionKebabMenu(insideKebab);
+      }
       event.stopPropagation();
       return;
     }
@@ -251,13 +256,24 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   const toggleUploadRow = () => {
-    if (!typeSelectInForm || !newFileUploadRow) return;
-    const hideUpload = typeSelectInForm.value === 'folder';
-    newFileUploadRow.style.display = hideUpload ? 'none' : 'flex';
-    if (hideUpload && newFileUpload) {
-      newFileUpload.value = '';
-      resetSizeInput();
+    if (!typeSelectInForm || !newFileUploadRow || !newFileUpload) return;
+    const isFolderType = typeSelectInForm.value === 'folder';
+    newFileUpload.value = '';
+    resetSizeInput();
+
+    newFileUpload.removeAttribute('webkitdirectory');
+    newFileUpload.removeAttribute('directory');
+    newFileUpload.removeAttribute('multiple');
+    newFileUpload.setAttribute('accept', defaultAccept);
+
+    if (isFolderType) {
+      newFileUpload.removeAttribute('accept');
+      newFileUpload.setAttribute('webkitdirectory', '');
+      newFileUpload.setAttribute('directory', '');
+      newFileUpload.setAttribute('multiple', '');
     }
+
+    newFileUploadRow.style.display = 'flex';
   };
 
   newFileBtn?.addEventListener('click', () => {
@@ -270,10 +286,23 @@ document.addEventListener('DOMContentLoaded', () => {
   typeSelectInForm?.addEventListener('change', toggleUploadRow);
   newFileUpload?.addEventListener('change', () => {
     if (!sizeInput) return;
-    const file = newFileUpload.files?.[0];
-    if (file) {
-      sizeInput.value = (file.size / (1024 * 1024)).toFixed(2);
+    const files = newFileUpload.files ? Array.from(newFileUpload.files) : [];
+    if (files.length) {
+      const totalSizeMb = files.reduce((sum, f) => sum + f.size, 0) / (1024 * 1024);
+      sizeInput.value = totalSizeMb.toFixed(2);
       sizeInput.readOnly = true;
+
+      const isFolderType = typeSelectInForm?.value === 'folder';
+      if (isFolderType && nameInput) {
+        const relPath = files[0].webkitRelativePath || files[0].name;
+        const folderName = relPath.split('/')[0] || relPath;
+        if (!nameInput.value) nameInput.value = folderName;
+      } else {
+        const guessedType = guessTypeFromFilename(files[0].name);
+        if (guessedType && typeSelectInForm) {
+          typeSelectInForm.value = guessedType;
+        }
+      }
     } else {
       resetSizeInput();
     }
@@ -311,40 +340,49 @@ document.addEventListener('DOMContentLoaded', () => {
       parentId: getCurrentFolderId(),
     };
 
+    const selectedFiles = newFileUpload?.files ? Array.from(newFileUpload.files) : [];
+
     if (payload.isFolder) {
       payload.type = 'folder';
       payload.sizeMb = 0;
     }
 
     try {
-      const selectedFile = newFileUpload?.files?.[0];
-      let response;
-
-      if (selectedFile && !payload.isFolder) {
-        const uploadData = new FormData();
-        uploadData.append('file', selectedFile);
-        uploadData.append('name', payload.name);
-        uploadData.append('type', payload.type);
-        uploadData.append('owner', payload.owner);
-        uploadData.append('location', payload.location);
-        uploadData.append('sizeMb', payload.sizeMb);
-        uploadData.append('sharedWith', payload.sharedWith.join(','));
-        uploadData.append('starred', payload.starred);
-        uploadData.append('parentId', getCurrentFolderId() || '');
-        response = await fetch('/api/files/upload', {
-          method: 'POST',
-          body: uploadData,
-        });
+      if (payload.isFolder) {
+        const folderId = await createFolderWithContents(payload, selectedFiles);
+        if (!folderId && selectedFiles.length) {
+          throw new Error('Failed to upload folder contents.');
+        }
       } else {
-        response = await fetch('/api/files', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        });
-      }
-      if (!response.ok) {
-        const body = await response.json().catch(() => ({}));
-        throw new Error(body.message || 'Failed to create item.');
+        const selectedFile = selectedFiles[0];
+        let response;
+
+        if (selectedFile) {
+          const uploadData = new FormData();
+          uploadData.append('file', selectedFile);
+          uploadData.append('name', payload.name);
+          uploadData.append('type', payload.type);
+          uploadData.append('owner', payload.owner);
+          uploadData.append('location', payload.location);
+          uploadData.append('sizeMb', payload.sizeMb);
+          uploadData.append('sharedWith', payload.sharedWith.join(','));
+          uploadData.append('starred', payload.starred);
+          uploadData.append('parentId', getCurrentFolderId() || '');
+          response = await fetch('/api/files/upload', {
+            method: 'POST',
+            body: uploadData,
+          });
+        } else {
+          response = await fetch('/api/files', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          });
+        }
+        if (!response.ok) {
+          const body = await response.json().catch(() => ({}));
+          throw new Error(body.message || 'Failed to create item.');
+        }
       }
       newFileForm.reset();
       if (newFileUpload) newFileUpload.value = '';
@@ -372,6 +410,67 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!sizeInput) return;
     sizeInput.readOnly = false;
     sizeInput.value = '';
+  }
+
+  async function createFolderWithContents(payload, files = []) {
+    // Create the root folder
+    const folderResponse = await fetch('/api/files', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!folderResponse.ok) {
+      const body = await folderResponse.json().catch(() => ({}));
+      throw new Error(body.message || 'Failed to create folder.');
+    }
+    const folderBody = await folderResponse.json().catch(() => ({}));
+    const folderId =
+      folderBody?.data?._id ||
+      folderBody?.data?.id ||
+      folderBody?._id ||
+      folderBody?.id ||
+      null;
+
+    if (!files.length || !folderId) {
+      return folderId;
+    }
+
+    for (const file of files) {
+      const uploadData = new FormData();
+      uploadData.append('file', file);
+      uploadData.append('name', file.name);
+      uploadData.append('type', guessTypeFromFilename(file.name) || payload.type || 'document');
+      uploadData.append('owner', payload.owner);
+      uploadData.append('location', payload.location);
+      uploadData.append('sizeMb', (file.size / (1024 * 1024)).toFixed(2));
+      uploadData.append('sharedWith', (payload.sharedWith || []).join(','));
+      uploadData.append('starred', payload.starred);
+      uploadData.append('parentId', folderId);
+
+      const uploadResponse = await fetch('/api/files/upload', {
+        method: 'POST',
+        body: uploadData,
+      });
+
+      if (!uploadResponse.ok) {
+        const body = await uploadResponse.json().catch(() => ({}));
+        throw new Error(body.message || `Failed to upload ${file.name}`);
+      }
+    }
+
+    return folderId;
+  }
+
+  function guessTypeFromFilename(name) {
+    const ext = name.split('.').pop()?.toLowerCase();
+    if (!ext) return '';
+    if (['doc', 'docx'].includes(ext)) return 'document';
+    if (['xls', 'xlsx'].includes(ext)) return 'spreadsheet';
+    if (['txt', 'md', 'csv', 'rtf'].includes(ext)) return 'text';
+    if (['zip', 'rar', '7z'].includes(ext)) return 'archive';
+    if (ext === 'pdf') return 'pdf';
+    if (['mp4', 'mov', 'mkv', 'avi', 'webm'].includes(ext)) return 'video';
+    return '';
   }
 
   // Share dialog setup
@@ -609,7 +708,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const moveError = document.getElementById('move-error');
   const moveCancel = document.getElementById('move-cancel');
   const moveSave = document.getElementById('move-save');
-  let currentMoveFileId = null;
+  let currentMoveFileIds = [];
 
   moveCancel?.addEventListener('click', () => {
     moveDialog?.close();
@@ -617,7 +716,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   moveSave?.addEventListener('click', async () => {
-    if (!currentMoveFileId || !moveFolderSelect) return;
+    if (!currentMoveFileIds.length || !moveFolderSelect) return;
     if (moveError) moveError.textContent = '';
     if (moveSave) {
       moveSave.disabled = true;
@@ -626,14 +725,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
     try {
       const parentId = moveFolderSelect.value || null;
-      const response = await fetch(`/api/files/${currentMoveFileId}/move`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ parentId }),
-      });
-      if (!response.ok) {
-        const body = await response.json().catch(() => ({}));
-        throw new Error(body.message || 'Failed to move file.');
+      for (const id of currentMoveFileIds) {
+        const response = await fetch(`/api/files/${id}/move`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ parentId }),
+        });
+        if (!response.ok) {
+          const body = await response.json().catch(() => ({}));
+          throw new Error(body.message || 'Failed to move file.');
+        }
       }
       moveDialog?.close();
       await refresh();
@@ -660,11 +761,17 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  window.openMoveDialog = async (fileId) => {
-    const file = state.data.find((f) => f.id === fileId);
-    if (!file || !moveDialog) return;
-    currentMoveFileId = fileId;
-    if (moveFileName) moveFileName.textContent = file.name;
+  window.openMoveDialog = async (fileIds) => {
+    const ids = Array.isArray(fileIds) ? fileIds : [fileIds];
+    const validFiles = ids
+      .map((id) => state.data.find((f) => f.id === id))
+      .filter(Boolean);
+    if (!validFiles.length || !moveDialog) return;
+    currentMoveFileIds = validFiles.map((f) => f.id);
+    if (moveFileName) {
+      moveFileName.textContent =
+        validFiles.length === 1 ? validFiles[0].name : `${validFiles.length} items`;
+    }
     if (moveError) moveError.textContent = '';
 
     // Load folders and populate select
@@ -753,7 +860,17 @@ async function loadFiles() {
     throw new Error('Failed to fetch files');
   }
   const payload = await response.json();
-  state.data = (payload.data || []).map(normalizeFile);
+  let data = (payload.data || []).map(normalizeFile).filter(applyAdvancedFilters);
+
+  // Home root shows 20 most recent; inside folders show actual contents
+  if (state.context === 'home' && !state.currentFolderId) {
+    data = data
+      .slice()
+      .sort((a, b) => new Date(b.lastOpenedAt || b.uploadedAt || 0) - new Date(a.lastOpenedAt || a.uploadedAt || 0))
+      .slice(0, 20);
+  }
+
+  state.data = data;
   state.filterOptions = payload.meta?.availableFilters || state.filterOptions;
   state.storage = payload.meta?.storage || state.storage;
   const availableIds = new Set(state.data.map((file) => file.id));
@@ -783,6 +900,26 @@ function normalizeFile(file) {
     availableOffline: file.availableOffline || false,
     parentId: file.parentId || null,
   };
+}
+
+function applyAdvancedFilters(file) {
+  const { name = '', owner = '', shared = '', content = '' } = state.advancedFilters;
+  const matchesName = !name || (file.name || '').toLowerCase().includes(name.toLowerCase());
+  const matchesOwner = !owner || (file.owner || '').toLowerCase().includes(owner.toLowerCase());
+  const matchesShared =
+    !shared ||
+    (file.sharedWith || []).some((p) => (p || '').toLowerCase().includes(shared.toLowerCase()));
+
+  const contentHaystack =
+    file.content ||
+    file.extractedText ||
+    file.description ||
+    file.originalName ||
+    '';
+  const matchesContent =
+    !content || contentHaystack.toLowerCase().includes(content.toLowerCase());
+
+  return matchesName && matchesOwner && matchesShared && matchesContent;
 }
 
 function populateDynamicFilters() {
@@ -1088,12 +1225,63 @@ function updateSelectionUI(bar, counterEl) {
   const size = state.selected.size;
   counterEl.textContent = size;
   bar.classList.toggle('hidden', size === 0);
+  const singleOnly = size === 1;
+  bar.querySelectorAll('[data-requires-single]').forEach((el) => {
+    el.classList.toggle('disabled', !singleOnly);
+    if ('disabled' in el) {
+      el.disabled = !singleOnly;
+    }
+  });
+  const moveBtn = bar.querySelector('[data-bulk="move"]');
+  const deleteBtn = bar.querySelector('[data-bulk="delete"]');
+  if (moveBtn) moveBtn.textContent = state.context === 'trash' ? 'Restore' : 'Move';
+  if (deleteBtn) deleteBtn.textContent = state.context === 'trash' ? 'Delete forever' : 'Delete';
 }
 
 function updateViewButtons(btns) {
   btns.forEach((btn) => {
     btn.setAttribute('aria-pressed', btn.dataset.view === state.viewMode ? 'true' : 'false');
   });
+}
+
+function positionKebabMenu(kebabEl) {
+  const menu = kebabEl?.querySelector('.kebab-menu');
+  if (!menu) return;
+  // Reset first
+  menu.style.left = '';
+  menu.style.right = '';
+  menu.style.marginLeft = '';
+  menu.style.marginRight = '';
+
+  const padding = 8;
+  const rect = menu.getBoundingClientRect();
+  if (rect.right > window.innerWidth - padding) {
+    // Flip to align left of the toggle so it stays on-screen
+    menu.style.right = '0';
+    menu.style.left = 'auto';
+  } else if (rect.left < padding) {
+    // Ensure it doesn't disappear on the far left
+    menu.style.left = '0';
+    menu.style.right = 'auto';
+  }
+}
+
+function copyShareLink(file) {
+  if (!file) return;
+  const link =
+    file.storagePath && file.storagePath.trim()
+      ? `${window.location.origin}/${file.storagePath}`
+      : `${window.location.origin}/files/${file.id}`;
+
+  const notifyCopied = () => alert(`Link copied to clipboard:\n${link}`);
+
+  if (navigator.clipboard?.writeText) {
+    navigator.clipboard.writeText(link).then(notifyCopied).catch(() => {
+      notifyCopied();
+    });
+  } else {
+    notifyCopied();
+  }
 }
 
 function handleFileAction(action, fileId) {
@@ -1162,9 +1350,13 @@ function handleFileAction(action, fileId) {
 
   // --- SHARE & SUBMENU VARIANTS ---
 
-  // Share from main button or submenu entries "Share…" / "Copy link"
-  if (action === 'share' || action === 'share-people' || action === 'share-link') {
+  if (action === 'share' || action === 'share-people') {
     openShareDialog(fileId);
+    return;
+  }
+
+  if (action === 'share-link') {
+    copyShareLink(file);
     return;
   }
 
@@ -1214,7 +1406,7 @@ function handleFileAction(action, fileId) {
 
 
 
-function openFile(fileId) {
+async function openFile(fileId) {
   const file = state.data.find((item) => item.id === fileId);
   if (!file) return;
 
@@ -1229,11 +1421,38 @@ function openFile(fileId) {
     return;
   }
 
-  // Otherwise, normal online behavior
-  if (file.storagePath) {
-    window.open(`/${file.storagePath}`, '_blank');
-  } else {
-    alert(`Previewing "${file.name}" (placeholder)`);
+  const filename = (file.originalName || file.name || '').toLowerCase();
+  const officeExts = ['.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx'];
+  const isOfficeDoc = officeExts.some((ext) => filename.endsWith(ext));
+
+  const directUrl = file.storagePath
+    ? `${window.location.origin}/${file.storagePath}`
+    : `${window.location.origin}/api/files/${file.id}/download`;
+
+  // Stream the file and open via an object URL to avoid forced downloads
+  // (browsers may still download if they can't render the format)
+  await openBlobPreview(file, file.storagePath ? `/${file.storagePath}` : `/api/files/${file.id}/download`);
+}
+
+async function openBlobPreview(file, url) {
+  try {
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error('Preview failed');
+    }
+    const blob = await response.blob();
+    const objectUrl = URL.createObjectURL(blob);
+    const newWindow = window.open(objectUrl, '_blank');
+    if (!newWindow) {
+      // Fallback to same-tab navigation if pop-ups are blocked
+      window.location.href = objectUrl;
+    } else {
+      setTimeout(() => URL.revokeObjectURL(objectUrl), 30_000);
+    }
+  } catch (error) {
+    console.error('Preview failed, falling back to download', error);
+    alert('Unable to preview this file. Downloading instead.');
+    window.location.href = `/api/files/${file.id}/download`;
   }
 }
 
@@ -1526,11 +1745,7 @@ function handleBulkAction(action) {
       if (isTrashPage) {
         restoreFiles(ids);
       } else {
-        if (ids.length === 1) {
-          openMoveDialog(ids[0]);
-        } else {
-          alert('Please select only one file to move.');
-        }
+        openMoveDialog(ids);
       }
       break;
     case 'restore':
@@ -1559,7 +1774,13 @@ function handleBulkAction(action) {
       }
       break;
     default:
-      alert(`${action} not implemented yet`);
+      if (action === 'details' && ids.length === 1) {
+        openDetailsDialog(ids[0]);
+      } else if (action === 'make-copy') {
+        ids.forEach((id) => makeCopy(id));
+      } else {
+        alert(`${action} not implemented yet`);
+      }
   }
 }
 
