@@ -106,6 +106,21 @@ function initResetFlow() {
   const requestButton = document.getElementById('reset-request-submit');
   const tokenWrapper = document.getElementById('reset-token-hint');
   const tokenValue = document.getElementById('reset-demo-token');
+  const resetPanel = document.getElementById('reset-form-panel');
+  const resetEmailDisplay = document.getElementById('reset-email-display');
+  const resetTokenDisplay = document.getElementById('reset-token-display');
+  const resetTokenLabel = document.getElementById('reset-token-label');
+  const resetTokenValue = document.getElementById('reset-token-value');
+  const resetHintMessage = document.getElementById('reset-hint-message');
+
+  const params = new URLSearchParams(window.location.search);
+  const prefilledEmail = (params.get('email') || '').toString().trim();
+  const prefilledToken = (params.get('token') || '').toString().trim();
+
+  if (requestForm && prefilledEmail) {
+    const emailInput = requestForm.querySelector('input[name="email"]');
+    if (emailInput) emailInput.value = prefilledEmail;
+  }
 
   if (requestForm) {
     requestForm.addEventListener('submit', async (event) => {
@@ -139,12 +154,20 @@ function initResetFlow() {
           tokenWrapper.hidden = false;
           tokenValue.textContent = body.demoToken;
         }
+        if (body.demoToken) {
+          showResetForm({
+            email: payload.email,
+            token: body.demoToken,
+            fromLink: false,
+            demoFallback: true,
+          });
+        }
       } catch (error) {
         if (requestError) requestError.textContent = error.message || 'Unable to create reset token.';
       } finally {
         if (requestButton) {
           requestButton.disabled = false;
-          requestButton.textContent = 'Send token';
+          requestButton.textContent = 'Send reset link';
         }
       }
     });
@@ -154,8 +177,18 @@ function initResetFlow() {
   const resetError = document.getElementById('reset-error');
   const resetSuccess = document.getElementById('reset-success');
   const resetButton = document.getElementById('reset-submit');
+  const passwordInput = resetForm?.querySelector('input[name="password"]');
 
   if (resetForm) {
+    if (prefilledEmail && prefilledToken) {
+      showResetForm({
+        email: prefilledEmail,
+        token: prefilledToken,
+        fromLink: true,
+        demoFallback: false,
+      });
+    }
+
     resetForm.addEventListener('submit', async (event) => {
       event.preventDefault();
       if (resetError) resetError.textContent = '';
@@ -181,6 +214,10 @@ function initResetFlow() {
           password,
           rememberMe: formData.get('remember') === 'on',
         };
+
+        if (!payload.email || !payload.token) {
+          throw new Error('Please request a reset link first.');
+        }
 
         const response = await fetch('/api/auth/reset', {
           method: 'POST',
@@ -208,6 +245,38 @@ function initResetFlow() {
         }
       }
     });
+  }
+
+  function showResetForm({ email, token, fromLink, demoFallback }) {
+    if (!resetForm || !resetPanel || !email || !token) return;
+    const emailInput = resetForm.querySelector('input[name="email"]');
+    const tokenInput = resetForm.querySelector('input[name="token"]');
+
+    if (emailInput) emailInput.value = email;
+    if (tokenInput) tokenInput.value = token;
+
+    if (resetEmailDisplay) {
+      resetEmailDisplay.textContent = `Resetting password for ${email}`;
+    }
+
+    if (resetTokenDisplay && resetTokenLabel && resetTokenValue) {
+      if (demoFallback) {
+        resetTokenLabel.textContent = 'Use this token:';
+        resetTokenValue.textContent = token;
+        resetTokenDisplay.hidden = false;
+      } else {
+        resetTokenDisplay.hidden = true;
+      }
+    }
+
+    if (resetHintMessage) {
+      resetHintMessage.textContent = fromLink
+        ? 'We pre-filled your details from the email link. Set a new password to finish.'
+        : 'Use the token above to set a new password.';
+    }
+
+    resetPanel.hidden = false;
+    if (passwordInput) passwordInput.focus();
   }
 }
 

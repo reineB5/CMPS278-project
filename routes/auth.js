@@ -2,6 +2,7 @@ const express = require('express');
 const User = require('../models/User');
 const PasswordResetToken = require('../models/PasswordResetToken');
 const { hashPassword, verifyPassword, generateToken, hashToken } = require('../utils/security');
+const { isEmailConfigured, sendPasswordResetEmail } = require('../utils/mailer');
 const {
   createUserSession,
   clearUserSession,
@@ -109,7 +110,7 @@ router.post('/forgot', async (req, res, next) => {
 
     const user = await User.findOne({ email: email.toLowerCase() });
     if (!user) {
-      return res.json({ message: 'If an account exists, a reset token has been issued.' });
+      return res.json({ message: 'If an account exists, a reset link has been sent.' });
     }
 
     const token = generateToken(32);
@@ -119,10 +120,28 @@ router.post('/forgot', async (req, res, next) => {
     await PasswordResetToken.deleteMany({ userId: user._id });
     await PasswordResetToken.create({ userId: user._id, tokenHash, expiresAt });
 
-    res.json({
-      message: 'Password reset token generated. Use it within the next hour.',
-      demoToken: token,
-    });
+    const emailReady = isEmailConfigured();
+
+    if (emailReady) {
+      try {
+        await sendPasswordResetEmail({ to: user.email, token });
+      } catch (error) {
+        console.error('Error sending reset email', error);
+        return res
+          .status(500)
+          .json({ message: 'We could not send the reset email. Please try again shortly.' });
+      }
+    }
+
+    const responseBody = {
+      message: 'If an account exists, we sent a reset link.',
+    };
+
+    if (!emailReady) {
+      responseBody.demoToken = token;
+    }
+
+    res.json(responseBody);
   } catch (error) {
     next(error);
   }
