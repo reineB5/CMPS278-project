@@ -357,37 +357,39 @@ document.addEventListener('DOMContentLoaded', () => {
         const selectedFile = selectedFiles[0];
         let response;
 
-      if (selectedFile && !payload.isFolder) {
-        const uploadData = new FormData();
-        uploadData.append('file', selectedFile);
-        uploadData.append('name', payload.name);
-        uploadData.append('type', payload.type);
-        uploadData.append('owner', payload.owner);
-        uploadData.append('location', payload.location);
-        uploadData.append('sizeMb', payload.sizeMb);
-        uploadData.append('sharedWith', payload.sharedWith.join(','));
-        uploadData.append('starred', payload.starred);
-        uploadData.append('parentId', getCurrentFolderId() || '');
-        response = await fetch('/api/files/upload', {
-          method: 'POST',
-          body: uploadData,
-        });
-      } else {
-        response = await fetch('/api/files', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        });
+        if (selectedFile && !payload.isFolder) {
+          const uploadData = new FormData();
+          uploadData.append('file', selectedFile);
+          uploadData.append('name', payload.name);
+          uploadData.append('type', payload.type);
+          uploadData.append('owner', payload.owner);
+          uploadData.append('location', payload.location);
+          uploadData.append('sizeMb', payload.sizeMb);
+          uploadData.append('sharedWith', payload.sharedWith.join(','));
+          uploadData.append('starred', payload.starred);
+          uploadData.append('parentId', getCurrentFolderId() || '');
+          response = await fetch('/api/files/upload', {
+            method: 'POST',
+            body: uploadData,
+          });
+        } else {
+          response = await fetch('/api/files', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          });
+        }
+
+        if (!response.ok) {
+          const body = await response.json().catch(() => ({}));
+          throw new Error(body.message || 'Failed to create item.');
+        }
+        newFileForm.reset();
+        if (newFileUpload) newFileUpload.value = '';
+        resetSizeInput();
+        newFileDialog?.close();
+        await refresh();
       }
-      if (!response.ok) {
-        const body = await response.json().catch(() => ({}));
-        throw new Error(body.message || 'Failed to create item.');
-      }
-      newFileForm.reset();
-      if (newFileUpload) newFileUpload.value = '';
-      resetSizeInput();
-      newFileDialog?.close();
-      await refresh();
     } catch (error) {
       if (newFileError) {
         newFileError.textContent = error.message || 'Unable to create item.';
