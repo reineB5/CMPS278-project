@@ -29,6 +29,8 @@ const fileSchema = new mongoose.Schema(
     storagePath: { type: String },
     isUploaded: { type: Boolean, default: false },
     availableOffline: { type: Boolean, default: false },
+    isShortcut: { type: Boolean, default: false },
+    shortcutTargetId: { type: mongoose.Schema.Types.ObjectId, ref: 'File', default: null },
   },
   { timestamps: true }
 );

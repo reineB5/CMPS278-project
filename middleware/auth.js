@@ -76,7 +76,14 @@ async function createUserSession(res, user, rememberMe = false, userAgent = '') 
   };
 
   if (rememberMe) {
+    // Set both maxAge and expires for better browser compatibility
     cookieOptions.maxAge = REMEMBER_SESSION_MS;
+    cookieOptions.expires = new Date(Date.now() + REMEMBER_SESSION_MS);
+  } else {
+    // Even for non-remember sessions, set maxAge so cookie persists across browser restarts
+    // until it expires (12 hours)
+    cookieOptions.maxAge = DEFAULT_SESSION_MS;
+    cookieOptions.expires = new Date(Date.now() + DEFAULT_SESSION_MS);
   }
 
   res.cookie('session_token', token, cookieOptions);

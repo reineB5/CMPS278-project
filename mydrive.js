@@ -1,13 +1,4 @@
-/*const TYPE_ICONS = {
-  folder: '📁',
-  document: '📝',
-  spreadsheet: '📊',
-  presentation: '📊',
-  pdf: '📕',
-  video: '🎬',
-  archive: '🗜️',
-  text: '📄',
-};*/
+
 const TYPE_ICONS = {
   folder:
     '<span class="material-icons file-icon-symbol">folder</span>',
@@ -40,11 +31,6 @@ const TYPE_ICONS = {
   video:
     '<span class="material-icons file-icon-symbol">movie</span>',
 };
-
-
-
-
-
 
 
 const LOCATION_OPTIONS = [
@@ -215,6 +201,20 @@ document.addEventListener('DOMContentLoaded', () => {
   document.addEventListener('click', (event) => {
     const toggleBtn = event.target.closest('.kebab-toggle');
     const insideKebab = event.target.closest('.kebab');
+    const submenuItem = event.target.closest('.submenu-item');
+
+    // Handle submenu item clicks
+    if (submenuItem && submenuItem.dataset.action) {
+      const row = submenuItem.closest('[data-file-id]');
+      if (row) {
+        handleFileAction(submenuItem.dataset.action, row.dataset.fileId);
+        // Close the kebab menu after action
+        const kebab = submenuItem.closest('.kebab');
+        if (kebab) kebab.classList.remove('open');
+        event.stopPropagation();
+        return;
+      }
+    }
 
     if (toggleBtn && insideKebab) {
       document.querySelectorAll('.kebab.open').forEach((k) => {
@@ -357,32 +357,31 @@ document.addEventListener('DOMContentLoaded', () => {
         const selectedFile = selectedFiles[0];
         let response;
 
-        if (selectedFile) {
-          const uploadData = new FormData();
-          uploadData.append('file', selectedFile);
-          uploadData.append('name', payload.name);
-          uploadData.append('type', payload.type);
-          uploadData.append('owner', payload.owner);
-          uploadData.append('location', payload.location);
-          uploadData.append('sizeMb', payload.sizeMb);
-          uploadData.append('sharedWith', payload.sharedWith.join(','));
-          uploadData.append('starred', payload.starred);
-          uploadData.append('parentId', getCurrentFolderId() || '');
-          response = await fetch('/api/files/upload', {
-            method: 'POST',
-            body: uploadData,
-          });
-        } else {
-          response = await fetch('/api/files', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload),
-          });
-        }
-        if (!response.ok) {
-          const body = await response.json().catch(() => ({}));
-          throw new Error(body.message || 'Failed to create item.');
-        }
+      if (selectedFile && !payload.isFolder) {
+        const uploadData = new FormData();
+        uploadData.append('file', selectedFile);
+        uploadData.append('name', payload.name);
+        uploadData.append('type', payload.type);
+        uploadData.append('owner', payload.owner);
+        uploadData.append('location', payload.location);
+        uploadData.append('sizeMb', payload.sizeMb);
+        uploadData.append('sharedWith', payload.sharedWith.join(','));
+        uploadData.append('starred', payload.starred);
+        uploadData.append('parentId', getCurrentFolderId() || '');
+        response = await fetch('/api/files/upload', {
+          method: 'POST',
+          body: uploadData,
+        });
+      } else {
+        response = await fetch('/api/files', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+      }
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        throw new Error(body.message || 'Failed to create item.');
       }
       newFileForm.reset();
       if (newFileUpload) newFileUpload.value = '';
@@ -520,6 +519,7 @@ document.addEventListener('DOMContentLoaded', () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ sharedWith: currentShareList }),
+        credentials: 'same-origin',
       });
       if (!response.ok) {
         const body = await response.json().catch(() => ({}));
@@ -605,6 +605,7 @@ document.addEventListener('DOMContentLoaded', () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: newName }),
+        credentials: 'same-origin',
       });
       if (!response.ok) {
         const body = await response.json().catch(() => ({}));
@@ -660,6 +661,7 @@ document.addEventListener('DOMContentLoaded', () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ description: detailsDescription.value }),
+        credentials: 'same-origin',
       });
       if (!response.ok) {
         const body = await response.json().catch(() => ({}));
@@ -725,16 +727,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     try {
       const parentId = moveFolderSelect.value || null;
-      for (const id of currentMoveFileIds) {
-        const response = await fetch(`/api/files/${id}/move`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ parentId }),
-        });
-        if (!response.ok) {
-          const body = await response.json().catch(() => ({}));
-          throw new Error(body.message || 'Failed to move file.');
-        }
+      const response = await fetch(`/api/files/${currentMoveFileId}/move`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ parentId }),
+      });
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        throw new Error(body.message || 'Failed to move file.');
       }
       moveDialog?.close();
       await refresh();
@@ -752,7 +752,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   async function loadFolders() {
     try {
-      const response = await fetch('/api/files/folders');
+      const response = await fetch('/api/files/folders', {
+        credentials: 'same-origin',
+      });
       if (!response.ok) throw new Error('Failed to load folders');
       return await response.json();
     } catch (error) {
@@ -792,6 +794,75 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     moveDialog.showModal();
+  };
+
+  // Shortcut dialog setup
+  const shortcutDialog = document.getElementById('shortcut-dialog');
+  const shortcutFileName = document.getElementById('shortcut-file-name');
+  const shortcutFolderSelect = document.getElementById('shortcut-folder-select');
+  const shortcutError = document.getElementById('shortcut-error');
+  const shortcutCancel = document.getElementById('shortcut-cancel');
+  const shortcutCreate = document.getElementById('shortcut-create');
+  let currentShortcutFileId = null;
+
+  shortcutCancel?.addEventListener('click', () => {
+    shortcutDialog?.close();
+    if (shortcutError) shortcutError.textContent = '';
+  });
+
+  shortcutCreate?.addEventListener('click', async () => {
+    if (!currentShortcutFileId || !shortcutFolderSelect) return;
+    if (shortcutError) shortcutError.textContent = '';
+    if (shortcutCreate) {
+      shortcutCreate.disabled = true;
+      shortcutCreate.textContent = 'Creating...';
+    }
+
+    try {
+      const parentId = shortcutFolderSelect.value || null;
+      const response = await fetch(`/api/files/${currentShortcutFileId}/shortcut`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ parentId }),
+        credentials: 'same-origin',
+      });
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        throw new Error(body.message || 'Failed to create shortcut.');
+      }
+      shortcutDialog?.close();
+      await refresh();
+    } catch (error) {
+      if (shortcutError) {
+        shortcutError.textContent = error.message || 'Unable to create shortcut.';
+      }
+    } finally {
+      if (shortcutCreate) {
+        shortcutCreate.disabled = false;
+        shortcutCreate.textContent = 'Add shortcut';
+      }
+    }
+  });
+
+  window.openShortcutDialog = async (fileId) => {
+    const file = state.data.find((f) => f.id === fileId);
+    if (!file || !shortcutDialog) return;
+    currentShortcutFileId = fileId;
+    if (shortcutFileName) shortcutFileName.textContent = file.name;
+    if (shortcutError) shortcutError.textContent = '';
+
+    // Load folders and populate select
+    const folders = await loadFolders();
+    if (shortcutFolderSelect) {
+      shortcutFolderSelect.innerHTML = '<option value="">My Drive</option>';
+      folders.forEach((folder) => {
+        const option = document.createElement('option');
+        option.value = folder._id;
+        option.textContent = folder.name;
+      });
+    }
+
+    shortcutDialog.showModal();
   };
 
   // Delete dialog setup
@@ -850,7 +921,9 @@ async function loadFiles() {
     advContent: state.advancedFilters.content || '',
   });
 
-  const response = await fetch(`/api/files?${params.toString()}`);
+  const response = await fetch(`/api/files?${params.toString()}`, {
+    credentials: 'same-origin',
+  });
   if (!response.ok) {
     if (response.status === 400 && (state.currentFolderId || state.folderTrail.length)) {
       state.currentFolderId = null;
@@ -899,6 +972,8 @@ function normalizeFile(file) {
     starred: file.starred || false,
     availableOffline: file.availableOffline || false,
     parentId: file.parentId || null,
+    isShortcut: file.isShortcut || false,
+    shortcutTargetId: file.shortcutTargetId || null,
   };
 }
 
@@ -1013,6 +1088,8 @@ function createListRow(file, selected) {
   row.className = `file-row${selected ? ' selected' : ''}`;
   row.dataset.fileId = file.id;
 
+  const shortcutIndicator = file.isShortcut ? '<span class="material-icons" style="font-size: 16px; color: #5f6368; margin-left: 4px;" title="Shortcut">link</span>' : '';
+
   row.innerHTML = `
     <div class="file-checkbox">
       <input type="checkbox" class="file-select" ${selected ? 'checked' : ''} aria-label="Select ${file.name}">
@@ -1020,7 +1097,7 @@ function createListRow(file, selected) {
     <div class="file-main">
       <span class="file-icon">${getIcon(file)}</span>
       <div>
-        <div class="file-name">${file.name}</div>
+        <div class="file-name">${file.name}${shortcutIndicator}</div>
         <div class="file-meta">${file.location}</div>
       </div>
     </div>
@@ -1040,6 +1117,8 @@ function createGridCard(file, selected) {
   card.className = `grid-card${selected ? ' selected' : ''}`;
   card.dataset.fileId = file.id;
 
+  const shortcutIndicator = file.isShortcut ? '<span class="material-icons" style="font-size: 16px; color: #5f6368; margin-left: 4px;" title="Shortcut">link</span>' : '';
+
   card.innerHTML = `
     <div class="grid-card-header">
       <div class="file-checkbox">
@@ -1048,7 +1127,7 @@ function createGridCard(file, selected) {
       <div class="file-main">
         <span class="file-icon">${getIcon(file)}</span>
         <div>
-          <div class="file-name">${file.name}</div>
+          <div class="file-name">${file.name}${shortcutIndicator}</div>
           <div class="file-meta">${file.location}</div>
         </div>
       </div>
@@ -1373,9 +1452,9 @@ function handleFileAction(action, fileId) {
     return;
   }
 
-  // "Add shortcut to Drive" – no backend for this, so just show a placeholder
+  // "Add shortcut to Drive"
   if (action === 'add-shortcut') {
-    alert('“Add shortcut to Drive” is a visual placeholder in this prototype.');
+    openShortcutDialog(fileId);
     return;
   }
 
@@ -1409,6 +1488,12 @@ function handleFileAction(action, fileId) {
 async function openFile(fileId) {
   const file = state.data.find((item) => item.id === fileId);
   if (!file) return;
+
+  // If this is a shortcut, open the target file instead
+  if (file.isShortcut && file.shortcutTargetId) {
+    openFile(file.shortcutTargetId);
+    return;
+  }
 
   if (file.isFolder) {
     enterFolder(file);
@@ -1660,7 +1745,9 @@ function getProfileElements() {
 
 async function loadCurrentUser(elements = {}) {
   try {
-    const response = await fetch('/api/auth/me');
+    const response = await fetch('/api/auth/me', {
+      credentials: 'same-origin',
+    });
     if (response.status === 401) {
       window.location.href = '/login';
       return;
@@ -1790,6 +1877,7 @@ async function moveToTrash(ids) {
       ids.map((id) =>
         fetch(`/api/files/${id}/trash`, {
           method: 'POST',
+          credentials: 'same-origin',
         })
       )
     );
@@ -1808,6 +1896,7 @@ async function restoreFiles(ids) {
       ids.map((id) =>
         fetch(`/api/files/${id}/restore`, {
           method: 'POST',
+          credentials: 'same-origin',
         })
       )
     );
@@ -1826,6 +1915,7 @@ async function deleteForever(ids) {
       ids.map((id) =>
         fetch(`/api/files/${id}`, {
           method: 'DELETE',
+          credentials: 'same-origin',
         })
       )
     );
@@ -1842,6 +1932,7 @@ async function toggleStar(fileId) {
   try {
     const response = await fetch(`/api/files/${fileId}/star`, {
       method: 'POST',
+      credentials: 'same-origin',
     });
     if (!response.ok) throw new Error('Failed to toggle star');
     await loadFiles();
@@ -1904,6 +1995,7 @@ async function toggleOffline(fileId) {
   try {
     const response = await fetch(`/api/files/${fileId}/offline`, {
       method: 'POST',
+      credentials: 'same-origin',
     });
     if (!response.ok) throw new Error('Failed to toggle offline');
 
@@ -1915,7 +2007,9 @@ async function toggleOffline(fileId) {
         console.warn('File has no storagePath, cannot cache offline.');
       } else {
         // Use the download endpoint we made earlier
-        const downloadResponse = await fetch(`/api/files/${fileId}/download`);
+        const downloadResponse = await fetch(`/api/files/${fileId}/download`, {
+          credentials: 'same-origin',
+        });
         if (!downloadResponse.ok) {
           throw new Error('Failed to download file for offline use');
         }
@@ -1951,6 +2045,7 @@ async function makeCopy(fileId) {
   try {
     const response = await fetch(`/api/files/${fileId}/copy`, {
       method: 'POST',
+      credentials: 'same-origin',
     });
 
     if (!response.ok) {
